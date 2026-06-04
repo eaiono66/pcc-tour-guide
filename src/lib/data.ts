@@ -52,7 +52,7 @@ export const SHOWS: Record<string, Record<string, string[]>> = {
 export const SPECIAL_EVENTS = {
   huki: {
     title: 'Huki — A Canoe Celebration',
-    time: '13:00', endTime: '13:20',
+    time: '12:40', endTime: '13:00',
     desc: "Head to the lagoon — this canoe-side show only happens once a day. Don't miss it!",
   },
 };
@@ -89,6 +89,10 @@ export const INTEREST_VILLAGE_BOOST: Record<string, string[]> = {
   hands_on:           ['fiji','samoa','aotearoa'],
   learn_history:      ['aotearoa','fiji','tonga'],
   food:               ['samoa','fiji','hawaii'],
+  dancing:            ['tahiti','hawaii','tonga'],
+  photography:        ['samoa','fiji','tahiti'],
+  wow_factor:         ['samoa','fiji'],
+  crafts:             ['aotearoa','tonga','fiji'],
 };
 
 export interface Ticket {
@@ -119,15 +123,205 @@ export const TICKETS: Record<string, Ticket> = {
     desc: 'Self-guided villages + island buffet dinner + Hā Silver seating',
     hasDinner: true, hasShow: true, badge: 'popular',
     dinnerTitle: 'Gateway Buffet',
-    dinnerDesc: 'Gateway Buffet opens at 4:30 PM and runs until 6:30 PM — head over when you\'re ready.',
+    dinnerDesc: 'Gateway Buffet opens at 5:30 PM and runs until 7:30 PM — head over when you\'re ready.',
   },
   'self-alii': {
     id: 'self-alii', name: "Self-Guided Ali'i Lū'au",
     desc: "Declined guided tour — Ali'i Lu'au dinner + Hā Gold seating",
     hasDinner: true, hasShow: true, badge: 'self', divider: true,
     dinnerTitle: "Ali'i Lu'au",
-    dinnerDesc: "The Ali'i Lu'au venue opens at 4:30 PM — get settled in. The show officially starts at 5:00 PM.",
+    dinnerDesc: "The Ali'i Lu'au venue opens at 5:30 PM — get settled in. The show officially starts at 5:30 PM.",
   },
+};
+
+export const VILLAGE_ACTIVITIES: Record<string, {
+  id: string;
+  name: string;
+  desc: string;
+  tags: string[];
+  energyMin: 'low' | 'medium' | 'high';
+  ageMin: number;
+}[]> = {
+  samoa: [
+    {
+      id: 'samoa-fire',
+      name: 'Fire Knife Twirling',
+      desc: "Try the legend yourself — PCC's most iconic skill.",
+      tags: ['hands_on', 'wow_factor', 'photography'],
+      energyMin: 'medium',
+      ageMin: 8,
+    },
+    {
+      id: 'samoa-fire-sticks',
+      name: 'Start a Fire with Two Sticks',
+      desc: 'Ancient Samoan survival skill — can you make fire?',
+      tags: ['hands_on', 'learn_history'],
+      energyMin: 'medium',
+      ageMin: 5,
+    },
+    {
+      id: 'samoa-weave',
+      name: 'Weave a Fish from Coconut Leaves',
+      desc: 'Take home a handmade souvenir woven in the village.',
+      tags: ['crafts', 'hands_on'],
+      energyMin: 'low',
+      ageMin: 4,
+    },
+  ],
+  hawaii: [
+    {
+      id: 'hawaii-games',
+      name: 'Ancient Hawaiian Games',
+      desc: 'Play the same games Hawaiian chiefs played centuries ago.',
+      tags: ['hands_on', 'learn_history'],
+      energyMin: 'low',
+      ageMin: 4,
+    },
+    {
+      id: 'hawaii-hula',
+      name: 'Hula Lesson',
+      desc: 'Learn the basics of hula from a real Hawaiian dancer.',
+      tags: ['dancing', 'hands_on'],
+      energyMin: 'low',
+      ageMin: 4,
+    },
+    {
+      id: 'hawaii-fishing',
+      name: 'Fish Net Casting',
+      desc: 'Learn the ancient art of fishing without a rod.',
+      tags: ['hands_on', 'learn_history'],
+      energyMin: 'medium',
+      ageMin: 6,
+    },
+    {
+      id: 'hawaii-poi',
+      name: 'Sample Poi',
+      desc: "Taste freshly prepared poi — Hawaii's most traditional food.",
+      tags: ['food'],
+      energyMin: 'low',
+      ageMin: 2,
+    },
+  ],
+  aotearoa: [
+    {
+      id: 'aotearoa-titi',
+      name: 'Titi Tōrea Stick Game',
+      desc: 'Ancient Māori coordination game — harder than it looks.',
+      tags: ['hands_on', 'learn_history'],
+      energyMin: 'medium',
+      ageMin: 6,
+    },
+    {
+      id: 'aotearoa-poi',
+      name: 'Poi Ball Spinning',
+      desc: 'Swing traditional Māori poi balls — a test of rhythm.',
+      tags: ['hands_on', 'dancing'],
+      energyMin: 'medium',
+      ageMin: 5,
+    },
+    {
+      id: 'aotearoa-waka',
+      name: 'Waka Canoe History',
+      desc: 'How Māori navigated the Pacific in traditional waka.',
+      tags: ['learn_history'],
+      energyMin: 'low',
+      ageMin: 4,
+    },
+  ],
+  fiji: [
+    {
+      id: 'fiji-tattoo',
+      name: 'Get a Traditional Tattoo',
+      desc: 'A temporary Fijian tattoo — washes off, looks great.',
+      tags: ['hands_on', 'photography', 'wow_factor'],
+      energyMin: 'low',
+      ageMin: 5,
+    },
+    {
+      id: 'fiji-painting',
+      name: 'Traditional Painting',
+      desc: 'Create your own Fijian art piece to take home.',
+      tags: ['crafts', 'hands_on'],
+      energyMin: 'low',
+      ageMin: 4,
+    },
+    {
+      id: 'fiji-camakau',
+      name: 'See the Camakau',
+      desc: "The same canoe type in Disney's Moana — right here.",
+      tags: ['learn_history', 'photography', 'wow_factor'],
+      energyMin: 'low',
+      ageMin: 2,
+    },
+  ],
+  tonga: [
+    {
+      id: 'tonga-canoe',
+      name: 'Paddle a Canoe',
+      desc: 'Native-style outrigger canoe like ancient islanders used.',
+      tags: ['hands_on', 'learn_history'],
+      energyMin: 'medium',
+      ageMin: 6,
+    },
+    {
+      id: 'tonga-windmill',
+      name: 'Make a Windmill',
+      desc: 'Traditional Tongan craft — take your creation home.',
+      tags: ['crafts', 'hands_on'],
+      energyMin: 'low',
+      ageMin: 4,
+    },
+    {
+      id: 'tonga-juggling',
+      name: 'Juggling',
+      desc: 'Traditional Tongan juggling — a crowd favorite.',
+      tags: ['hands_on', 'wow_factor'],
+      energyMin: 'medium',
+      ageMin: 5,
+    },
+  ],
+  tahiti: [
+    {
+      id: 'tahiti-bread',
+      name: 'Coconut Bread Tasting',
+      desc: 'Melt-in-your-mouth coconut bread made fresh daily.',
+      tags: ['food'],
+      energyMin: 'low',
+      ageMin: 2,
+    },
+    {
+      id: 'tahiti-dance',
+      name: 'Learn Tahitian Dance',
+      desc: 'Ori Tahiti — they will get you moving too.',
+      tags: ['dancing', 'hands_on', 'wow_factor'],
+      energyMin: 'medium',
+      ageMin: 4,
+    },
+    {
+      id: 'tahiti-spear',
+      name: 'Spear Throwing',
+      desc: 'Test your aim with traditional Tahitian spears.',
+      tags: ['hands_on', 'wow_factor'],
+      energyMin: 'high',
+      ageMin: 7,
+    },
+    {
+      id: 'tahiti-fishing',
+      name: 'Pole Fishing',
+      desc: 'Try traditional Tahitian pole fishing from the dock.',
+      tags: ['hands_on', 'food'],
+      energyMin: 'low',
+      ageMin: 5,
+    },
+    {
+      id: 'tahiti-tattoo',
+      name: 'Get a Tahitian Tattoo',
+      desc: 'Beautiful traditional design — temporary, washes off.',
+      tags: ['hands_on', 'photography', 'wow_factor'],
+      energyMin: 'low',
+      ageMin: 5,
+    },
+  ],
 };
 
 export const BUSY_DAYS = new Set([1, 4, 5]);
@@ -138,7 +332,7 @@ export const TIMING = {
   CANOE_DURATION_MIN:   15,
   MAX_SCHEDULE_GAP_MIN: 120,
   DINNER_CUTOFF:        '16:00',
-  HA_SEATING:           '19:00',
+  HA_SEATING:           '19:30',
 };
 
 export const ARRIVAL_TIME_OPTIONS = [
@@ -163,6 +357,18 @@ export const QUESTIONS = [
       { value: 'couple',       icon: '❤️',    label: 'Couple',  sub: 'Just the two of us' },
       { value: 'friends',      icon: '🤙',    label: 'Friends', sub: 'Group of adults' },
       { value: 'solo',         icon: '🙋',    label: 'Solo',    sub: 'Just me' },
+    ],
+  },
+  {
+    id: 'energy',
+    label: 'Your energy',
+    title: 'How active are you feeling today?',
+    sub: 'This helps us pick the right activities for you.',
+    type: 'single' as const,
+    options: [
+      { value: 'high',   icon: '🔥', label: "Let's do everything", sub: 'Hands-on, active, all in' },
+      { value: 'medium', icon: '😊', label: 'A good mix',           sub: 'Some doing, some watching' },
+      { value: 'low',    icon: '😌', label: 'Mostly relaxing',      sub: 'Watching, tasting, exploring' },
     ],
   },
   {

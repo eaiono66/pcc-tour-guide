@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -24,6 +25,37 @@ import {
   getDefaultGreeting,
   sendChatMessage,
 } from '@/lib/api';
+
+const ISLAND_COLORS: Record<string, string> = {
+  samoa:     '#E8472A',
+  hawaii:    '#2E7D32',
+  aotearoa:  '#1A237E',
+  fiji:      '#212121',
+  tonga:     '#B71C1C',
+  tahiti:    '#6A1B9A',
+  canoe:     '#0277BD',
+  dinner:    '#E65100',
+  ha_show:   '#4A148C',
+  huki:      '#00695C',
+  foodtruck: '#4E342E',
+};
+
+const VILLAGE_IMAGES: Record<string, { uri: string }> = {
+  samoa:    { uri: 'https://www.polynesia.com/globalassets/samoa-fire.jpeg' },
+  hawaii:   { uri: 'https://www.polynesia.com/globalassets/hawaii-hula-.jpeg' },
+  aotearoa: { uri: 'https://www.polynesia.com/globalassets/aotearoa-war-face.jpeg' },
+  fiji:     { uri: 'https://www.polynesia.com/globalassets/fiji-warrior.jpeg' },
+  tonga:    { uri: 'https://www.polynesia.com/globalassets/tonga-dance.jpeg' },
+  tahiti:   { uri: 'https://www.polynesia.com/globalassets/tahiti-dance.jpeg' },
+};
+
+const STOP_TYPE_ICONS: Record<string, { bg: string; icon: string }> = {
+  dinner:    { bg: '#FAEEDA', icon: '🍽️' },
+  ha_show:   { bg: '#F0E8F8', icon: '🌟' },
+  canoe:     { bg: '#E8F4FD', icon: '🛶' },
+  huki:      { bg: '#EBF5EB', icon: '🎭' },
+  foodtruck: { bg: '#F5F5F5', icon: '🍜' },
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -512,8 +544,21 @@ function ScheduleView({ schedule, greeting, isBusy, ticket, onRestart }: {
 }
 
 function ScheduleStopRow({ stop, isLast }: { stop: ScheduleStop; isLast: boolean }) {
+  const villageKey = stop.type === 'show'
+    ? stop.village.toLowerCase()
+    : stop.type;
+  const borderColor = ISLAND_COLORS[villageKey] || C.accent;
+  const imgSrc = stop.type === 'show' ? VILLAGE_IMAGES[stop.village.toLowerCase()] : undefined;
+  const typeIcon = STOP_TYPE_ICONS[stop.type];
   return (
-    <View style={[s.schedItem, stop.highlight && s.schedItemHighlight, isLast && { borderBottomWidth: 0 }]}>
+    <View style={[s.schedItem, stop.highlight && s.schedItemHighlight, isLast && { borderBottomWidth: 0 }, { borderLeftWidth: 4, borderLeftColor: borderColor }]}>
+      {imgSrc ? (
+        <Image source={imgSrc} style={{ width: 54, height: 54, borderRadius: 10 }} resizeMode="cover" />
+      ) : typeIcon ? (
+        <View style={{ width: 54, height: 54, borderRadius: 10, backgroundColor: typeIcon.bg, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 24 }}>{typeIcon.icon}</Text>
+        </View>
+      ) : null}
       <Text style={s.schedTime}>{stop.time}</Text>
       <View style={{ flex: 1 }}>
         <Text style={s.schedVillage}>{stop.village}</Text>
@@ -604,127 +649,188 @@ function ChatScheduleCard({ jsonStr }: { jsonStr: string }) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  root:       { flex: 1, backgroundColor: C.bg },
-  safeArea:   { flex: 1 },
+  root:     { flex: 1, backgroundColor: C.background },
+  safeArea: { flex: 1, backgroundColor: C.background },
 
-  header:     { textAlign: 'center' as any, alignItems: 'center', paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: C.border, marginBottom: 0 },
-  headerSub:  { fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: '#888', marginBottom: 3 },
-  headerTitle:{ fontSize: 22, fontWeight: '600', color: C.text },
+  header: {
+    backgroundColor: C.navBar,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#3B1F0F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  headerSub:  { color: 'rgba(255,255,255,0.65)', fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase' },
+  headerTitle:{ color: '#FFFFFF', fontSize: 22, fontWeight: '700' },
 
-  progressBar:  { height: 3, backgroundColor: '#f0f0f0', marginBottom: 0 },
-  progressFill: { height: 3, backgroundColor: C.orange, borderRadius: 2 },
+  progressBar:  { height: 3, backgroundColor: C.divider },
+  progressFill: { backgroundColor: C.accent, borderRadius: 0 },
 
-  loadingView:    { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  loadingTitle:   { fontSize: 16, fontWeight: '600', color: C.text, textAlign: 'center', marginBottom: 6 },
-  loadingSubtitle:{ fontSize: 13, color: '#aaa', textAlign: 'center' },
+  loadingView:     { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.background, padding: 32 },
+  loadingTitle:    { fontSize: 18, fontWeight: '600', color: C.textDark, textAlign: 'center', marginBottom: 8 },
+  loadingSubtitle: { fontSize: 14, color: C.textMid, textAlign: 'center', marginBottom: 24 },
 
-  qContent: { padding: 20, paddingBottom: 100, gap: 0 },
-  qLabel:   { fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: C.orange, marginBottom: 6, marginTop: 16 },
-  qTitle:   { fontSize: 18, fontWeight: '600', color: C.text, marginBottom: 4, lineHeight: 24 },
-  qSub:     { fontSize: 13, color: '#888', marginBottom: 18, lineHeight: 18 },
+  qContent: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 },
+  qLabel:   { fontSize: 11, color: C.textMid, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 },
+  qTitle:   { fontSize: 26, fontWeight: '700', color: C.textDark, marginBottom: 6, lineHeight: 32 },
+  qSub:     { fontSize: 14, color: C.textMid, marginBottom: 28, lineHeight: 21 },
 
-  optGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  optBtn:     { width: '47%', backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: C.radius, padding: 12, alignItems: 'center', gap: 4 },
-  optBtnSel:  { borderColor: C.orange, borderWidth: 1.5, backgroundColor: C.orangeLight },
-  optIcon:    { fontSize: 22 },
-  optLabel:   { fontSize: 13, fontWeight: '500', color: C.text },
-  optLabelSel:{ color: C.orangeText },
-  optSub:     { fontSize: 11, color: '#999' },
-  optSubSel:  { color: '#c06040' },
+  optGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  optBtn: {
+    backgroundColor: C.card,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: C.divider,
+    width: '47%',
+    shadowColor: '#3B1F0F',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  optBtnSel:   { backgroundColor: '#FDF5EC', borderColor: C.accent, borderLeftWidth: 4, borderLeftColor: C.accent },
+  optIcon:     { fontSize: 28, marginBottom: 8 },
+  optLabel:    { fontSize: 14, fontWeight: '600', color: C.textDark },
+  optLabelSel: { color: C.primary },
+  optSub:      { fontSize: 11, color: C.textMid, marginTop: 3 },
+  optSubSel:   { color: C.textMid },
 
-  selectGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  timeChip:      { paddingVertical: 10, paddingHorizontal: 14, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: C.radius },
-  timeChipSel:   { borderColor: C.orange, borderWidth: 1.5, backgroundColor: C.orangeLight },
-  timeChipText:  { fontSize: 14, color: C.text },
-  timeChipTextSel:{ color: C.orangeText, fontWeight: '500' },
+  selectGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
+  timeChip:        { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 22, borderWidth: 1.5, borderColor: C.divider, backgroundColor: C.card },
+  timeChipSel:     { backgroundColor: C.accent, borderColor: C.accent },
+  timeChipText:    { fontSize: 13, color: C.textMid, fontWeight: '500' },
+  timeChipTextSel: { color: C.white, fontWeight: '700' },
 
-  pkgDivider:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 4 },
-  pkgDividerLine:{ flex: 1, height: 1, backgroundColor: C.border },
-  pkgDividerText:{ fontSize: 11, color: '#aaa' },
-  pkgCard:       { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: C.radius, padding: 14, gap: 4 },
-  pkgCardSel:    { borderColor: C.orange, borderWidth: 1.5, backgroundColor: C.orangeLight },
-  pkgName:       { fontSize: 14, fontWeight: '600', color: C.text },
-  pkgDesc:       { fontSize: 12, color: '#666', lineHeight: 18 },
-  badge:         { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginBottom: 4 },
-  badgeGreen:    { backgroundColor: '#E1F5EE' },
-  badgeBlue:     { backgroundColor: '#E6F1FB' },
-  badgeGray:     { backgroundColor: '#f0f0f0' },
-  badgeText:     { fontSize: 10, fontWeight: '500' },
+  navRow:          { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 10 },
+  mainBtn:         { backgroundColor: C.primary, borderRadius: 26, paddingVertical: 15, paddingHorizontal: 28, alignItems: 'center', flex: 1 },
+  mainBtnDisabled: { backgroundColor: '#C4A898', opacity: 0.6 },
+  mainBtnText:     { color: '#FFFFFF', fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
+  backBtn:         { width: 46, height: 46, borderRadius: 23, borderWidth: 1.5, borderColor: C.divider, alignItems: 'center', justifyContent: 'center' },
+  backBtnText:     { fontSize: 20, color: C.textDark },
 
-  navRow:        { flexDirection: 'row', gap: 8, marginTop: 4 },
-  mainBtn:       { flex: 1, backgroundColor: C.orange, borderRadius: C.radius, paddingVertical: 15, alignItems: 'center' },
-  mainBtnDisabled:{ backgroundColor: '#ddd' },
-  mainBtnText:   { fontSize: 15, fontWeight: '600', color: '#fff' },
-  backBtn:       { paddingHorizontal: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: C.radius, justifyContent: 'center' },
-  backBtnText:   { fontSize: 18, color: '#666' },
+  pkgCard: {
+    backgroundColor: C.card,
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1.5,
+    borderColor: C.divider,
+    shadowColor: '#3B1F0F',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  pkgCardSel:     { backgroundColor: '#FDF5EC', borderColor: C.accent, borderLeftWidth: 4, borderLeftColor: C.accent },
+  pkgName:        { fontSize: 15, fontWeight: '700', color: C.textDark, marginBottom: 4 },
+  pkgDesc:        { fontSize: 13, color: C.textMid, lineHeight: 19 },
+  badge:          { alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10, marginBottom: 8 },
+  badgeGreen:     { backgroundColor: '#EBF5EB' },
+  badgeBlue:      { backgroundColor: '#E8F0FB' },
+  badgeGray:      { backgroundColor: '#F2F2F2' },
+  badgeText:      { fontSize: 11, fontWeight: '600', letterSpacing: 0.3 },
+  pkgDivider:     { flexDirection: 'row', alignItems: 'center', marginVertical: 14 },
+  pkgDividerLine: { flex: 1, height: 1, backgroundColor: C.divider },
+  pkgDividerText: { fontSize: 11, color: C.textLight, marginHorizontal: 10, fontStyle: 'italic' },
 
-  greetingCard:  { backgroundColor: '#f9f9f7', borderRadius: C.radius, padding: 14, borderLeftWidth: 3, borderLeftColor: C.orange, marginBottom: 14 },
-  greetingText:  { fontSize: 14, color: '#444', lineHeight: 22 },
+  greetingCard: { backgroundColor: C.primary, borderRadius: 14, padding: 18, marginBottom: 14 },
+  greetingText: { color: '#FFFFFF', fontSize: 14, lineHeight: 22, fontStyle: 'italic' },
 
-  routeBadge:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f7ee', borderRadius: 10, padding: 10, marginBottom: 12 },
+  routeBadge: { backgroundColor: '#EBF5EB', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: '#C5E0C5', marginBottom: 8 },
 
-  schedSectionLabel: { fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: '#999', marginBottom: 8 },
-  schedCard:     { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: C.radius, overflow: 'hidden', marginBottom: 12 },
-  schedItem:     { flexDirection: 'row', gap: 12, padding: 12, borderBottomWidth: 0.5, borderBottomColor: '#f0f0f0', alignItems: 'flex-start' },
-  schedItemHighlight: { backgroundColor: '#fff8f6' },
-  schedTime:     { fontSize: 11, color: '#aaa', minWidth: 50, paddingTop: 2 },
-  schedVillage:  { fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: C.orange, fontWeight: '700', marginBottom: 2 },
-  schedTitle:    { fontSize: 13, fontWeight: '600', color: C.text, marginBottom: 2 },
-  schedDesc:     { fontSize: 12, color: '#666', lineHeight: 18 },
-  schedFlags:    { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
-  schedFlag:     { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  schedFlagText: { fontSize: 9, fontWeight: '500' },
+  schedSectionLabel: { fontSize: 11, color: C.textMid, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 10, marginTop: 6 },
+  schedCard: {
+    backgroundColor: C.card,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: C.divider,
+    shadowColor: '#3B1F0F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  schedItem:          { flexDirection: 'row', gap: 12, padding: 14, borderBottomWidth: 1, borderBottomColor: C.divider, alignItems: 'center' },
+  schedItemHighlight: { backgroundColor: '#FDF5EC' },
+  schedTime:          { fontSize: 12, fontWeight: '700', color: C.accent, width: 54, paddingTop: 2 },
+  schedVillage:       { fontSize: 10, color: C.textMid, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 },
+  schedTitle:         { fontSize: 14, fontWeight: '600', color: C.textDark, marginBottom: 3 },
+  schedDesc:          { fontSize: 12, color: C.textMid, lineHeight: 17 },
+  schedFlags:         { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 },
+  schedFlag:          { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
+  schedFlagText:      { fontSize: 10, fontWeight: '600' },
 
-  upgradeCard:   { backgroundColor: '#FAEEDA', borderWidth: 1.5, borderColor: '#EF9F27', borderRadius: C.radius, padding: 16, marginBottom: 10 },
-  upgradeLabel:  { fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: '#854F0B', fontWeight: '600', marginBottom: 5 },
-  upgradeTitle:  { fontSize: 14, fontWeight: '600', color: '#633806', marginBottom: 4 },
-  upgradeDesc:   { fontSize: 12, color: '#854F0B', lineHeight: 18, marginBottom: 12 },
-  upgradeBtn:    { backgroundColor: '#BA7517', borderRadius: 8, paddingVertical: 11, alignItems: 'center' },
-  upgradeBtnText:{ fontSize: 13, fontWeight: '600', color: '#fff' },
+  upgradeCard:    { backgroundColor: C.accentLight, borderRadius: 14, padding: 18, borderWidth: 1.5, borderColor: C.accent, marginTop: 14 },
+  upgradeLabel:   { fontSize: 10, color: C.warning, textTransform: 'uppercase', letterSpacing: 1, fontWeight: '600', marginBottom: 4 },
+  upgradeTitle:   { fontSize: 18, fontWeight: '700', color: C.textDark, marginBottom: 8 },
+  upgradeDesc:    { fontSize: 13, color: C.textMid, lineHeight: 20, marginBottom: 14 },
+  upgradeBtn:     { backgroundColor: C.primary, borderRadius: 24, paddingVertical: 13, alignItems: 'center' },
+  upgradeBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 
-  infoCardFree3: { backgroundColor: '#E1F5EE', borderWidth: 1, borderColor: '#9FD9C5', borderRadius: C.radius, padding: 14, marginBottom: 10 },
-  infoCardTitle: { fontSize: 13, fontWeight: '600', color: '#0F6E56', marginBottom: 3 },
-  infoCardDesc:  { fontSize: 12, color: '#1D6B50', lineHeight: 18 },
+  infoCardFree3: { backgroundColor: '#E8F5E9', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#A5D6A7', marginTop: 12 },
+  infoCardTitle: { fontSize: 13, fontWeight: '700', color: '#2D6A2D', marginBottom: 4 },
+  infoCardDesc:  { fontSize: 12, color: '#2D6A2D', lineHeight: 18 },
 
-  restartBtn:    { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: C.radius, paddingVertical: 13, alignItems: 'center', marginTop: 4 },
-  restartBtnText:{ fontSize: 14, color: '#666' },
+  restartBtn:     { borderWidth: 1.5, borderColor: C.divider, borderRadius: 24, paddingVertical: 13, alignItems: 'center', marginTop: 16, marginBottom: 8 },
+  restartBtnText: { fontSize: 14, color: C.textMid, fontWeight: '500' },
 
-  // Chat
-  fab:    { position: 'absolute', bottom: 24, right: 24, width: 54, height: 54, backgroundColor: C.orange, borderRadius: 27, justifyContent: 'center', alignItems: 'center', shadowColor: C.orange, shadowOpacity: 0.4, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 8 },
-  fabIcon:{ fontSize: 22 },
+  fab: {
+    position: 'absolute', bottom: 28, right: 20, width: 54, height: 54,
+    borderRadius: 27, backgroundColor: C.primary,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#3B1F0F', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 8, elevation: 8,
+  },
+  fabIcon: { fontSize: 22, color: '#FFFFFF' },
 
-  overlay:{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 10 },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(59,31,15,0.4)', zIndex: 10 },
 
-  drawer:          { position: 'absolute', bottom: 0, left: 0, right: 0, height: '78%', backgroundColor: C.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 20, shadowColor: '#000', shadowOpacity: 0.15, shadowOffset: { width: 0, height: -4 }, shadowRadius: 20, elevation: 20 },
-  drawerHandle:    { width: 36, height: 4, backgroundColor: '#ddd', borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 0 },
-  drawerHeader:    { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderBottomWidth: 0.5, borderBottomColor: '#f0f0f0' },
-  drawerAvatar:    { width: 34, height: 34, backgroundColor: C.orange, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
-  drawerName:      { fontSize: 14, fontWeight: '600', color: C.text },
-  drawerStatus:    { fontSize: 11, color: '#1D9E75' },
-  drawerClose:     { padding: 4 },
+  drawer: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 530,
+    backgroundColor: C.card,
+    borderTopLeftRadius: 22, borderTopRightRadius: 22,
+    shadowColor: '#3B1F0F', shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.12, shadowRadius: 10, elevation: 14, zIndex: 20,
+  },
+  drawerHandle: { width: 38, height: 4, backgroundColor: C.divider, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 6 },
+  drawerHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: C.divider, gap: 10,
+  },
+  drawerAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
+  drawerName:   { fontSize: 14, fontWeight: '700', color: C.textDark },
+  drawerStatus: { fontSize: 11, color: C.success },
+  drawerClose:  { padding: 6 },
 
-  chatArea:  { flex: 1, paddingHorizontal: 12, paddingTop: 8 },
-  msgRow:    { flexDirection: 'row', gap: 7, alignItems: 'flex-end' },
-  msgAvatar: { width: 26, height: 26, backgroundColor: C.orange, borderRadius: 13, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
-  aiBubble:  { backgroundColor: '#f5f5f2', borderRadius: 14, borderBottomLeftRadius: 3, padding: 10, maxWidth: '80%' },
-  userBubble:{ backgroundColor: C.orange, borderRadius: 14, borderBottomRightRadius: 3, padding: 10, maxWidth: '80%' },
-  typingBubble: { backgroundColor: '#f5f5f2', borderRadius: 14, padding: 10 },
+  chatArea:     { flex: 1, paddingHorizontal: 12, paddingTop: 10 },
+  msgRow:       { flexDirection: 'row', alignItems: 'flex-end', gap: 6, marginBottom: 2 },
+  msgAvatar:    { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F0E8DE', alignItems: 'center', justifyContent: 'center' },
+  aiBubble:     { backgroundColor: C.cardElevated, borderRadius: 14, borderBottomLeftRadius: 4, padding: 10, maxWidth: '80%', borderWidth: 1, borderColor: C.divider },
+  userBubble:   { backgroundColor: C.primary, borderRadius: 14, borderBottomRightRadius: 4, padding: 10, maxWidth: '80%' },
+  typingBubble: { backgroundColor: C.cardElevated, borderRadius: 14, padding: 10, borderWidth: 1, borderColor: C.divider },
 
-  quickReplies: { maxHeight: 44, flexShrink: 0 },
-  qrBtn:   { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, flexShrink: 0 },
-  qrText:  { fontSize: 11, color: '#555' },
+  quickReplies: { maxHeight: 46, borderTopWidth: 1, borderTopColor: C.divider },
+  qrBtn:        { backgroundColor: C.cardElevated, borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8, borderWidth: 1, borderColor: C.divider },
+  qrText:       { fontSize: 12, color: C.textDark, fontWeight: '500' },
 
-  inputArea: { flexDirection: 'row', gap: 7, padding: 8, paddingHorizontal: 12, borderTopWidth: 0.5, borderTopColor: '#f0f0f0', alignItems: 'flex-end' },
-  inputWrap: { flex: 1, backgroundColor: '#f5f5f2', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 7 },
-  input:     { fontSize: 13, color: C.text, maxHeight: 70, lineHeight: 18 },
-  sendBtn:   { width: 34, height: 34, backgroundColor: C.orange, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
-  sendBtnDisabled: { backgroundColor: '#ddd' },
+  inputArea:       { flexDirection: 'row', padding: 12, gap: 8, borderTopWidth: 1, borderTopColor: C.divider, alignItems: 'flex-end' },
+  inputWrap:       { flex: 1, backgroundColor: C.cardElevated, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: C.divider, minHeight: 42 },
+  input:           { fontSize: 14, color: C.textDark, maxHeight: 80 },
+  sendBtn:         { width: 42, height: 42, borderRadius: 21, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
+  sendBtnDisabled: { opacity: 0.4 },
 
   miniSchedCard:   { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: C.radius, overflow: 'hidden', marginTop: 4 },
   miniSchedHeader: { backgroundColor: C.orange, padding: 8, paddingHorizontal: 12 },
   miniSchedItem:   { flexDirection: 'row', gap: 8, padding: 7, paddingHorizontal: 12, borderBottomWidth: 0.5, borderBottomColor: '#f5f5f2', alignItems: 'flex-start' },
-  miniTime:    { fontSize: 11, color: '#aaa', minWidth: 44, paddingTop: 1 },
-  miniVillage: { fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: C.orange, fontWeight: '700' },
-  miniTitle:   { fontSize: 12, fontWeight: '600', color: C.text },
-  miniTip:     { fontSize: 11, color: '#888', marginTop: 1 },
+  miniTime:        { fontSize: 11, color: '#aaa', minWidth: 44, paddingTop: 1 },
+  miniVillage:     { fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: C.orange, fontWeight: '700' },
+  miniTitle:       { fontSize: 12, fontWeight: '600', color: C.text },
+  miniTip:         { fontSize: 11, color: '#888', marginTop: 1 },
 });

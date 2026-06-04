@@ -1,7 +1,7 @@
 import {
   ADJACENCY, CANOE, CROWD_FLAGS, GROUP_VILLAGE_PRIORITY,
   INTEREST_SHOWS, INTEREST_VILLAGE_BOOST, SHOWS,
-  SPECIAL_EVENTS, TICKETS, TIMING, VILLAGE_NUMBER,
+  SPECIAL_EVENTS, TICKETS, TIMING, VILLAGE_ACTIVITIES, VILLAGE_NUMBER,
 } from './data';
 
 export interface ScheduleStop {
@@ -13,6 +13,7 @@ export interface ScheduleStop {
   desc: string;
   flags: string[];
   highlight?: boolean;
+  activities?: string[];
 }
 
 export interface ScheduleResult {
@@ -118,9 +119,43 @@ function getPriorityVillages(group: string, interests: string[], connection: str
   return priority;
 }
 
+function assignActivities(
+  village: string,
+  interests: string[],
+  energy: string,
+  group: string
+): string[] {
+  const activities = VILLAGE_ACTIVITIES[village.toLowerCase()];
+  if (!activities) return [];
+
+  const energyRank: Record<string, number> = { low: 0, medium: 1, high: 2 };
+  const guestEnergy = energyRank[energy] ?? 1;
+
+  return activities
+    .filter(a => {
+      if (energyRank[a.energyMin] > guestEnergy) return false;
+      if (group === 'family_kids' && a.ageMin > 8) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const aScore = a.tags.filter(t => interests.includes(t)).length;
+      const bScore = b.tags.filter(t => interests.includes(t)).length;
+      return bScore - aScore;
+    })
+    .slice(0, 3)
+    .map(a => a.name);
+}
+
 function buildShowStop(
-  village: string, showName: string, time: string,
-  isBusy: boolean, usedVillages: Set<string>, highlight = false
+  village: string,
+  showName: string,
+  time: string,
+  isBusy: boolean,
+  usedVillages: Set<string>,
+  interests: string[] = [],
+  energy: string = 'medium',
+  group: string = 'solo',
+  highlight = false
 ): ScheduleStop | null {
   if (usedVillages.has(village)) return null;
   usedVillages.add(village);
@@ -141,12 +176,14 @@ function buildShowStop(
     time: timeToDisplay(time), timeMin, type: 'show',
     village: village.charAt(0).toUpperCase() + village.slice(1),
     title: showName, desc, flags, highlight,
+    activities: assignActivities(village, interests, energy, group),
   };
 }
 
 function buildSmartRoute(
   arrMin: number, priority: string[], preferredShows: string[],
-  isBusy: boolean, lastShowCutoff: number
+  isBusy: boolean, lastShowCutoff: number,
+  interests: string[] = [], energy: string = 'medium', group: string = 'solo'
 ): ScheduleStop[] {
   const stops: ScheduleStop[] = [];
   const usedVillages = new Set<string>();
@@ -184,7 +221,7 @@ function buildSmartRoute(
     if (usedVillages.has(v)) continue;
     const show = getBestShow(v, curMin, preferredShows, lastShowCutoff);
     if (!show || !isTransitionValid(lastVillage, v, canoeUsed, false)) continue;
-    addStop(buildShowStop(v, show.name, show.time, isBusy, usedVillages));
+    addStop(buildShowStop(v, show.name, show.time, isBusy, usedVillages, interests, energy, group));
   }
 
   // Phase 3: Canoe north
@@ -198,7 +235,7 @@ function buildSmartRoute(
     if (usedVillages.has(v)) continue;
     const show = getBestShow(v, curMin, preferredShows, lastShowCutoff);
     if (!show || !isTransitionValid(lastVillage, v, canoeUsed, false)) continue;
-    addStop(buildShowStop(v, show.name, show.time, isBusy, usedVillages));
+    addStop(buildShowStop(v, show.name, show.time, isBusy, usedVillages, interests, energy, group));
   }
 
   // Phase 5: Remaining middle
@@ -207,7 +244,7 @@ function buildSmartRoute(
     if (curMin >= toMinutes('15:30')) break;
     const show = getBestShow(v, curMin, preferredShows, lastShowCutoff);
     if (!show || !isTransitionValid(lastVillage, v, canoeUsed, false)) continue;
-    addStop(buildShowStop(v, show.name, show.time, isBusy, usedVillages));
+    addStop(buildShowStop(v, show.name, show.time, isBusy, usedVillages, interests, energy, group));
   }
 
   // Phase 6: 4PM Samoa Fire Knife
@@ -223,12 +260,12 @@ function buildSmartRoute(
       }
     }
     if (isTransitionValid(lastVillage, 'samoa', canoeUsed, false)) {
-      addStop(buildShowStop('samoa', 'Tree of Life & Fire Knife', '16:00', isBusy, usedVillages, true));
+      addStop(buildShowStop('samoa', 'Tree of Life & Fire Knife', '16:00', isBusy, usedVillages, interests, energy, group, true));
     }
   } else if (!usedVillages.has('samoa')) {
     const samoaShow = getBestShow('samoa', curMin, preferredShows, lastShowCutoff);
     if (samoaShow && isTransitionValid(lastVillage, 'samoa', canoeUsed, false)) {
-      addStop(buildShowStop('samoa', samoaShow.name, samoaShow.time, isBusy, usedVillages));
+      addStop(buildShowStop('samoa', samoaShow.name, samoaShow.time, isBusy, usedVillages, interests, energy, group));
     }
   }
 
@@ -236,7 +273,8 @@ function buildSmartRoute(
 }
 
 function buildLateRoute(
-  arrMin: number, priority: string[], isBusy: boolean, lastShowCutoff: number
+  arrMin: number, priority: string[], isBusy: boolean, lastShowCutoff: number,
+  interests: string[] = [], energy: string = 'medium', group: string = 'solo'
 ): ScheduleStop[] {
   const stops: ScheduleStop[] = [];
   const usedVillages = new Set<string>();
@@ -247,7 +285,7 @@ function buildLateRoute(
     if (usedVillages.has(v)) continue;
     const show = getBestShow(v, curMin, [], lastShowCutoff);
     if (!show || !isTransitionValid(lastVillage, v, false, false)) continue;
-    const stop = buildShowStop(v, show.name, show.time, isBusy, usedVillages);
+    const stop = buildShowStop(v, show.name, show.time, isBusy, usedVillages, interests, energy, group);
     if (!stop) continue;
     stops.push(stop);
     curMin      = stop.timeMin + TIMING.SHOW_DURATION_MIN + TIMING.WALK_BUFFER_MIN;
@@ -258,9 +296,9 @@ function buildLateRoute(
 
 export function buildSchedule(params: {
   arrival: string; group: string; interests: string[];
-  connection: string[]; ticket: string; isBusy: boolean;
+  connection: string[]; ticket: string; isBusy: boolean; energy?: string;
 }): ScheduleResult {
-  const { arrival, group, interests, connection, ticket, isBusy } = params;
+  const { arrival, group, interests, connection, ticket, isBusy, energy = 'medium' } = params;
   const ticketData   = TICKETS[ticket];
   const arrMin       = toMinutes(arrival);
   const isLateArrival = arrMin >= toMinutes('16:30');
@@ -273,8 +311,8 @@ export function buildSchedule(params: {
   const preferredShows = getPreferredShows(interests);
 
   let stops: ScheduleStop[] = isLateArrival
-    ? buildLateRoute(arrMin, priority, isBusy, lastShowCutoff)
-    : buildSmartRoute(arrMin, priority, preferredShows, isBusy, lastShowCutoff);
+    ? buildLateRoute(arrMin, priority, isBusy, lastShowCutoff, interests, energy, group)
+    : buildSmartRoute(arrMin, priority, preferredShows, isBusy, lastShowCutoff, interests, energy, group);
 
   stops = stops
     .filter(s => s.timeMin >= arrMin)
@@ -296,28 +334,29 @@ export function buildSchedule(params: {
 
   if (ticketData.hasDinner) {
     stops.push({
-      time: '4:30 PM', timeMin: toMinutes('16:30'),
+      time: '5:30 PM', timeMin: toMinutes('17:30'),
       type: 'dinner', village: 'Dining',
       title: ticketData.dinnerTitle!, desc: ticketData.dinnerDesc!, flags: [],
     });
   }
 
-  if (!ticketData.hasDinner && ticketData.hasShow) {
+  if (!ticketData.hasDinner) {
     stops.push({
       time: '5:00 PM', timeMin: toMinutes('17:00'),
-      type: 'foodtruck', village: 'On-Site Dining',
-      title: 'Food Trucks on Premises',
-      desc: 'Grab a bite while you wind down — food trucks are available on-site before the evening show.',
-      flags: [],
+      type: 'foodtruck',
+      village: 'Dining',
+      title: 'Dinner — Your Choice',
+      desc: 'Hukilau Marketplace is steps away — Pounders Restaurant (sit-down) and food trucks available. Or head out to explore nearby Lāʻie.',
+      flags: ['dining_choice'],
     });
   }
 
   if (ticketData.hasShow) {
     stops.push({
-      time: '7:00 PM', timeMin: toMinutes('19:00'),
+      time: '7:30 PM', timeMin: toMinutes('19:30'),
       type: 'ha_show', village: 'Hā Theater',
       title: 'Hā: Breath of Life',
-      desc: 'Seating opens at 7:00 PM — head to the theater for the grand finale of your day.',
+      desc: 'Seating opens at 7:00 PM — head to the Hā Theater early for the best seats. Show starts at 7:30 PM.',
       flags: ['dont_miss'],
     });
   }

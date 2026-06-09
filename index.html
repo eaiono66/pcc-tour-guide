@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Ezra Aiono — Portfolio</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+<style>
+/* ─────────────────────────────────────────────
+   SCREENSHOT SWAP SYSTEM
+   To update screenshots, replace the src values in the
+   JS CONFIG block at the bottom of this file.
+   Each app has named slots: splash, screen1, screen2, screen3
+───────────────────────────────────────────── */
+
+:root {
+  --bg: #07080f;
+  --bg2: #0c0e1a;
+  --border: rgba(255,255,255,0.07);
+  --text: #e2e4ef;
+  --muted: #5a5e75;
+  --accent: #e8a87c;
+  --accent2: #7eb8d4;
+  --accent3: #a89fd8;
+  --white: #f0f2ff;
+  /* GXD brand */
+  --gxd-teal: #3ecfcf;
+  --gxd-navy: #111936;
+  /* Itinerary brand */
+  --itin-brown: #6B3A2A;
+  --itin-orange: #E8622A;
+  --itin-cream: #faf6f2;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;overflow-x:hidden}
+
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:999;opacity:.4}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 48px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);backdrop-filter:blur(20px);background:rgba(7,8,15,0.8)}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:var(--white)}
+.nav-logo span{color:var(--accent)}
+.nav-links{display:flex;gap:32px}
+.nav-link{font-size:10px;letter-spacing:3px;color:var(--muted);text-decoration:none;text-transform:uppercase;transition:color .2s}
+.nav-link:hover{color:var(--white)}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* ── HERO ── */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:flex-end;padding:0 48px 64px;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 70% 30%,rgba(232,168,124,0.06) 0%,transparent 70%),radial-gradient(ellipse 40% 40% at 20% 70%,rgba(126,184,212,0.05) 0%,transparent 70%)}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at center,black 0%,transparent 70%)}
+.hero-number{position:absolute;top:140px;right:48px;font-family:'Bebas Neue',sans-serif;font-size:220px;color:rgba(255,255,255,0.025);line-height:1;letter-spacing:-4px;user-select:none}
+.hero-tag{font-size:10px;letter-spacing:4px;color:var(--accent);margin-bottom:24px;opacity:0;animation:fadeUp .6s ease .2s forwards}
+.hero-name{font-family:'Bebas Neue',sans-serif;font-size:clamp(72px,10vw,140px);line-height:.95;letter-spacing:2px;color:var(--white);margin-bottom:32px;opacity:0;animation:fadeUp .6s ease .4s forwards}
+.hero-name .line2{color:var(--accent)}
+.hero-tagline{font-size:13px;color:var(--muted);line-height:1.8;max-width:480px;margin-bottom:40px;opacity:0;animation:fadeUp .6s ease .6s forwards}
+.hero-tagline strong{color:var(--text);font-weight:400}
+.hero-skills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:48px;opacity:0;animation:fadeUp .6s ease .8s forwards}
+.skill{font-size:10px;letter-spacing:1.5px;color:var(--muted);border:1px solid var(--border);padding:5px 14px;border-radius:2px;text-transform:uppercase;transition:all .2s}
+.skill:hover{color:var(--accent);border-color:rgba(232,168,124,0.3)}
+.hero-cta{display:flex;gap:12px;opacity:0;animation:fadeUp .6s ease 1s forwards}
+.btn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:2px;padding:14px 28px;border-radius:2px;cursor:pointer;text-decoration:none;text-transform:uppercase;transition:all .2s;display:inline-block}
+.btn-primary{background:var(--accent);color:#07080f;border:none}
+.btn-primary:hover{background:var(--white)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--white);border-color:rgba(255,255,255,0.2)}
+.hero-scroll{position:absolute;bottom:32px;right:48px;display:flex;align-items:center;gap:12px;font-size:9px;letter-spacing:3px;color:var(--muted);writing-mode:vertical-rl}
+.scroll-line{width:1px;height:40px;background:linear-gradient(to bottom,var(--accent),transparent)}
+
+/* ── SHARED SECTION ── */
+section{padding:100px 48px}
+.section-label{font-size:10px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;margin-bottom:48px;display:flex;align-items:center;gap:16px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── ABOUT ── */
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:start}
+.about-headline{font-family:'Instrument Serif',serif;font-size:clamp(36px,4vw,56px);line-height:1.1;color:var(--white);margin-bottom:28px}
+.about-headline em{color:var(--accent);font-style:italic}
+.about-text{font-size:13px;color:var(--muted);line-height:1.9;margin-bottom:16px}
+.about-text strong{color:var(--text);font-weight:400}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)}
+.stat{background:var(--bg2);padding:28px 24px}
+.stat-num{font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--white);letter-spacing:2px;margin-bottom:6px}
+.stat-label{font-size:10px;color:var(--muted);letter-spacing:1px}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── DIVIDER ── */
+.divider-text{font-family:'Bebas Neue',sans-serif;font-size:80px;color:rgba(255,255,255,0.03);letter-spacing:8px;text-align:center;padding:20px 0;border-top:1px solid var(--border);user-select:none;overflow:hidden;white-space:nowrap}
+
+/* ─────────────────────────────────────────────
+   APPLE-STYLE PROJECT SHOWCASE
+───────────────────────────────────────────── */
+
+.projects-showcase{padding:0}
+
+/* Project Hero — full-width immersive section */
+.project-hero{
+  min-height:100vh;
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+/* ── GXD Project ── */
+.project-hero.gxd{
+  background:linear-gradient(160deg, #060914 0%, #0d1528 40%, #0e1f3a 100%);
+}
+.project-hero.gxd .ph-glow{
+  position:absolute;
+  top:-20%;left:-10%;
+  width:70%;height:70%;
+  background:radial-gradient(ellipse, rgba(62,207,207,0.07) 0%, transparent 65%);
+  pointer-events:none;
+}
+.project-hero.gxd .ph-glow2{
+  position:absolute;
+  bottom:-20%;right:-10%;
+  width:60%;height:60%;
+  background:radial-gradient(ellipse, rgba(62,150,207,0.06) 0%, transparent 65%);
+  pointer-events:none;
+}
+
+/* ── Itinerary Project ── */
+.project-hero.itin{
+  background:linear-gradient(160deg, #100804 0%, #1e0e06 40%, #2a1408 100%);
+}
+.project-hero.itin .ph-glow{
+  position:absolute;
+  top:-20%;right:-10%;
+  width:70%;height:70%;
+  background:radial-gradient(ellipse, rgba(232,98,42,0.07) 0%, transparent 65%);
+  pointer-events:none;
+}
+.project-hero.itin .ph-glow2{
+  position:absolute;
+  bottom:-20%;left:-10%;
+  width:60%;height:60%;
+  background:radial-gradient(ellipse, rgba(107,58,42,0.09) 0%, transparent 65%);
+  pointer-events:none;
+}
+
+/* Content layout inside project hero */
+.ph-inner{
+  position:relative;
+  z-index:2;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0;
+  min-height:100vh;
+  align-items:center;
+}
+
+.ph-copy{
+  padding:100px 64px 100px 80px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+.ph-eyebrow{
+  font-size:10px;
+  letter-spacing:4px;
+  text-transform:uppercase;
+  margin-bottom:20px;
+  opacity:.7;
+}
+.gxd .ph-eyebrow{color:var(--gxd-teal)}
+.itin .ph-eyebrow{color:var(--itin-orange)}
+
+.ph-num{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:160px;
+  line-height:1;
+  position:absolute;
+  top:80px;left:60px;
+  opacity:.04;
+  letter-spacing:-4px;
+  color:#fff;
+  pointer-events:none;
+  user-select:none;
+}
+
+.ph-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(52px,5.5vw,80px);
+  line-height:.95;
+  letter-spacing:1px;
+  color:var(--white);
+  margin-bottom:8px;
+}
+
+.ph-subtitle{
+  font-family:'Instrument Serif',serif;
+  font-size:clamp(18px,2vw,26px);
+  font-style:italic;
+  margin-bottom:28px;
+  line-height:1.3;
+}
+.gxd .ph-subtitle{color:var(--gxd-teal);opacity:.8}
+.itin .ph-subtitle{color:var(--itin-orange);opacity:.8}
+
+.ph-desc{
+  font-size:13px;
+  color:var(--muted);
+  line-height:1.9;
+  max-width:480px;
+  margin-bottom:36px;
+}
+
+.ph-tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:40px;
+}
+.ph-tag{
+  font-size:10px;
+  letter-spacing:1.5px;
+  padding:5px 14px;
+  border-radius:2px;
+  border:1px solid;
+  text-transform:uppercase;
+}
+.gxd .ph-tag{color:var(--gxd-teal);border-color:rgba(62,207,207,0.25)}
+.itin .ph-tag{color:var(--itin-orange);border-color:rgba(232,98,42,0.25)}
+
+.ph-links{display:flex;gap:12px;flex-wrap:wrap}
+.ph-link{
+  font-family:'DM Mono',monospace;
+  font-size:11px;
+  letter-spacing:2px;
+  padding:13px 24px;
+  border-radius:2px;
+  text-decoration:none;
+  text-transform:uppercase;
+  transition:all .2s;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+.gxd .ph-link.primary{background:var(--gxd-teal);color:#060914}
+.gxd .ph-link.primary:hover{background:#fff}
+.gxd .ph-link.ghost{color:rgba(255,255,255,.5);border:1px solid rgba(62,207,207,.2)}
+.gxd .ph-link.ghost:hover{color:#fff;border-color:rgba(62,207,207,.5)}
+.itin .ph-link.primary{background:var(--itin-orange);color:#fff}
+.itin .ph-link.primary:hover{background:#f97742}
+.itin .ph-link.ghost{color:rgba(255,255,255,.5);border:1px solid rgba(232,98,42,.2)}
+.itin .ph-link.ghost:hover{color:#fff;border-color:rgba(232,98,42,.5)}
+
+/* ── Phone mockup stage ── */
+.ph-screens{
+  position:relative;
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.phone-stage{
+  position:relative;
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* Individual phone frames */
+.phone-frame{
+  position:absolute;
+  border-radius:44px;
+  overflow:hidden;
+  box-shadow:
+    0 0 0 10px #1a1a2e,
+    0 0 0 12px #0d0d1a,
+    0 40px 120px rgba(0,0,0,0.8),
+    0 8px 32px rgba(0,0,0,0.6);
+  transition:transform .4s cubic-bezier(.25,.46,.45,.94);
+}
+.gxd .phone-frame{box-shadow:0 0 0 10px #1a1a2e,0 0 0 12px #0d0d1a,0 40px 120px rgba(0,0,0,.8),0 8px 32px rgba(62,207,207,.08)}
+.itin .phone-frame{box-shadow:0 0 0 10px #2a1a10,0 0 0 12px #1a0e08,0 40px 120px rgba(0,0,0,.8),0 8px 32px rgba(232,98,42,.08)}
+
+.phone-frame::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:28px;
+  z-index:10;
+  background:inherit;
+  border-radius:44px 44px 0 0;
+}
+.gxd .phone-frame::before{background:#111936}
+.itin .phone-frame::before{background:#1a0e08}
+
+/* Notch */
+.phone-notch{
+  position:absolute;
+  top:8px;
+  left:50%;
+  transform:translateX(-50%);
+  width:90px;height:24px;
+  background:#000;
+  border-radius:20px;
+  z-index:20;
+}
+
+.phone-frame img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+  /* Easy swap: just update src attribute */
+}
+
+/* Phone layout — center large, flanking smaller */
+.phone-c{width:220px;height:476px;z-index:3;transform:translateY(0) rotate(0deg)}
+.phone-l{width:180px;height:390px;z-index:2;transform:translate(-190px, 30px) rotate(-6deg)}
+.phone-r{width:180px;height:390px;z-index:2;transform:translate(190px, 30px) rotate(6deg)}
+.phone-far-l{width:150px;height:324px;z-index:1;transform:translate(-310px, 60px) rotate(-12deg);opacity:.6}
+.phone-far-r{width:150px;height:324px;z-index:1;transform:translate(310px, 60px) rotate(12deg);opacity:.6}
+
+/* Hover lift */
+.ph-screens:hover .phone-c{transform:translateY(-10px)}
+.ph-screens:hover .phone-l{transform:translate(-195px, 24px) rotate(-5deg)}
+.ph-screens:hover .phone-r{transform:translate(195px, 24px) rotate(5deg)}
+
+/* ── Scroll reveal ── */
+.reveal{opacity:0;transform:translateY(32px);transition:opacity .7s ease,transform .7s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:.1s}
+.reveal-delay-2{transition-delay:.2s}
+.reveal-delay-3{transition-delay:.3s}
+
+/* ── Feature strips (under each project) ── */
+.feature-strip{
+  padding:80px 80px;
+  border-top:1px solid var(--border);
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:40px;
+}
+.gxd-strip{background:linear-gradient(180deg,#0d1528 0%,#07080f 100%)}
+.itin-strip{background:linear-gradient(180deg,#1e0e06 0%,#07080f 100%)}
+.feature-item{}
+.feature-icon{font-size:24px;margin-bottom:14px}
+.feature-title{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--white);margin-bottom:8px}
+.feature-desc{font-size:12px;color:var(--muted);line-height:1.7}
+
+/* ── EXPERIENCE ── */
+.exp-grid{display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border)}
+.exp-row{background:var(--bg2);padding:28px 40px;display:grid;grid-template-columns:200px 1fr;gap:40px}
+.exp-date{font-size:11px;color:var(--muted);padding-top:2px}
+.exp-title{font-size:14px;color:var(--white);margin-bottom:4px}
+.exp-org{font-size:11px;color:var(--accent);margin-bottom:8px}
+.exp-desc{font-size:12px;color:var(--muted);line-height:1.7}
+
+/* ── CONTACT ── */
+.contact-inner{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:start}
+.contact-headline{font-family:'Bebas Neue',sans-serif;font-size:clamp(48px,5vw,80px);line-height:.95;color:var(--white);margin-bottom:24px;letter-spacing:2px}
+.contact-headline span{color:var(--accent)}
+.contact-text{font-size:13px;color:var(--muted);line-height:1.9;margin-bottom:32px}
+.contact-links{display:flex;flex-direction:column;gap:10px}
+.contact-link{display:flex;align-items:center;gap:14px;padding:14px 20px;border:1px solid var(--border);text-decoration:none;transition:border-color .2s}
+.contact-link:hover{border-color:rgba(232,168,124,0.3)}
+.contact-link-icon{font-size:16px;width:24px;text-align:center}
+.contact-link-text{font-size:12px;color:var(--muted)}
+.contact-link:hover .contact-link-text{color:var(--text)}
+.contact-form{display:flex;flex-direction:column;gap:12px}
+.form-field{background:var(--bg2);border:1px solid var(--border);padding:14px 18px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text);outline:none;transition:border-color .2s;resize:none}
+.form-field::placeholder{color:var(--muted)}
+.form-field:focus{border-color:rgba(232,168,124,0.4)}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border);padding:24px 48px;display:flex;justify-content:space-between;align-items:center}
+.footer-text{font-size:10px;color:var(--muted);letter-spacing:2px}
+.footer-right{display:flex;gap:24px}
+.footer-link{font-size:10px;color:var(--muted);letter-spacing:1px;text-decoration:none}
+.footer-link:hover{color:var(--accent)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  nav{padding:16px 24px}
+  .nav-links{gap:20px}
+  section{padding:80px 24px}
+  .ph-inner{grid-template-columns:1fr;min-height:auto}
+  .ph-copy{padding:80px 24px 40px}
+  .ph-screens{height:460px}
+  .phone-c{width:160px;height:346px}
+  .phone-l,.phone-r{display:none}
+  .phone-far-l,.phone-far-r{display:none}
+  .about-grid{grid-template-columns:1fr}
+  .contact-inner{grid-template-columns:1fr}
+  .feature-strip{grid-template-columns:1fr;padding:40px 24px}
+  .hero{padding:0 24px 64px}
+  .ph-num{display:none}
+}
+
+/* ── GXD TWO-ROLES SECTION ── */
+.two-roles-wrap {
+  padding: 80px 80px 60px;
+  background: linear-gradient(180deg, #0d1528 0%, #07080f 100%);
+}
+.two-roles-label {
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: var(--gxd-teal);
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 48px;
+  opacity: .7;
+}
+.two-roles-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0;
+  align-items: center;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.role-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.role-tag {
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+.role-tag span {
+  color: var(--gxd-teal);
+}
+.role-phone {
+  border-radius: 40px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 9px #1a1a2e,
+    0 0 0 11px #0d0d1a,
+    0 32px 80px rgba(0,0,0,0.8),
+    0 8px 24px rgba(62,207,207,0.1);
+  width: 220px;
+  height: 476px;
+  position: relative;
+  flex-shrink: 0;
+}
+.role-phone::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 28px;
+  background: #111936;
+  border-radius: 40px 40px 0 0;
+  z-index: 10;
+}
+.role-phone-notch {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px; height: 22px;
+  background: #000;
+  border-radius: 20px;
+  z-index: 20;
+}
+.role-phone img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  display: block;
+}
+.role-caption {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.6;
+  max-width: 200px;
+}
+/* Center divider */
+.roles-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 0 32px;
+}
+.roles-divider-line {
+  width: 1px;
+  height: 60px;
+  background: linear-gradient(to bottom, transparent, rgba(62,207,207,0.3), transparent);
+}
+.roles-divider-badge {
+  border: 1px solid rgba(62,207,207,0.25);
+  border-radius: 3px;
+  padding: 10px 18px;
+  text-align: center;
+}
+.roles-divider-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  color: var(--gxd-teal);
+  letter-spacing: 3px;
+  display: block;
+}
+.roles-divider-sub {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  display: block;
+  margin-top: 4px;
+}
+.roles-pills {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+.roles-pill {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: rgba(62,207,207,0.6);
+  border: 1px solid rgba(62,207,207,0.15);
+  border-radius: 2px;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ── ITIN phone stage — 3 phones only ── */
+.phone-itin-c  { width:230px; height:498px; z-index:3; transform:translateY(0) rotate(0deg) }
+.phone-itin-l  { width:185px; height:400px; z-index:2; transform:translate(-200px, 28px) rotate(-6deg) }
+.phone-itin-r  { width:185px; height:400px; z-index:2; transform:translate(200px, 28px) rotate(6deg) }
+.ph-screens:hover .phone-itin-c { transform:translateY(-10px) }
+.ph-screens:hover .phone-itin-l { transform:translate(-205px,22px) rotate(-5deg) }
+.ph-screens:hover .phone-itin-r { transform:translate(205px,22px) rotate(5deg) }
+
+@media(max-width:900px){
+  .two-roles-wrap { padding: 60px 24px 40px }
+  .two-roles-grid { grid-template-columns: 1fr; gap: 40px }
+  .roles-divider { flex-direction: row; padding: 0 }
+  .roles-divider-line { width: 40px; height: 1px; background: rgba(62,207,207,0.3) }
+  .role-phone { width: 180px; height: 390px }
+  .roles-divider-badge { padding: 8px 14px }
+}
+
+
+/* ── GXD SCREENSHOT FEATURE CARDS ── */
+.feature-strip.gxd-strip {
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+.feature-card {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: linear-gradient(180deg, #0d1528 0%, #07080f 100%);
+  overflow: hidden;
+}
+.feature-card:last-child { border-right: none; }
+.feature-card-screen {
+  width: 100%;
+  aspect-ratio: 9/16;
+  overflow: hidden;
+  position: relative;
+  border-bottom: 1px solid var(--border);
+  background: #111936;
+}
+.feature-card-screen img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  display: block;
+  transition: transform .5s cubic-bezier(.25,.46,.45,.94);
+}
+.feature-card:hover .feature-card-screen img {
+  transform: scale(1.03) translateY(-8px);
+}
+.feature-card-copy {
+  padding: 28px 28px 36px;
+}
+.feature-card-num {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--gxd-teal);
+  opacity: .5;
+  margin-bottom: 10px;
+}
+.feature-card-title {
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--white);
+  margin-bottom: 10px;
+}
+.feature-card-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+@media(max-width:900px){
+  .feature-strip.gxd-strip { grid-template-columns: 1fr; }
+  .feature-card { border-right: none; border-bottom: 1px solid var(--border); }
+  .feature-card:last-child { border-bottom: none; }
+}
+
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">E<span>.</span>AIONO</div>
+  <div class="nav-links">
+    <a href="#about" class="nav-link">About</a>
+    <a href="#projects" class="nav-link">Projects</a>
+    <a href="#experience" class="nav-link">Experience</a>
+    <a href="#contact" class="nav-link">Contact</a>
+  </div>
+  <div class="nav-dot"></div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-number">EA</div>
+  <div class="hero-tag">Available for opportunities · Lā'ie, Hawai'i</div>
+  <h1 class="hero-name">EZRA<br><span class="line2">AIONO</span></h1>
+  <p class="hero-tagline"><strong>BYU–Hawaii IT student.</strong> Building AI-powered tools for real operations at the Polynesian Cultural Center.</p>
+  <div class="hero-skills">
+    <span class="skill">React Native</span>
+    <span class="skill">Expo</span>
+    <span class="skill">Claude API</span>
+    <span class="skill">Python</span>
+    <span class="skill">SQL</span>
+    <span class="skill">Tableau</span>
+    <span class="skill">Power BI</span>
+    <span class="skill">AWS</span>
+    <span class="skill">Azure</span>
+    <span class="skill">Linux</span>
+  </div>
+  <div class="hero-cta">
+    <a href="#projects" class="btn btn-primary">View Projects</a>
+    <a href="#contact" class="btn btn-ghost">Get in Touch</a>
+  </div>
+  <div class="hero-scroll">
+    <div class="scroll-line"></div>
+    SCROLL
+  </div>
+</section>
+
+<div class="divider-text">POLYNESIAN CULTURAL CENTER · BYU–HAWAII · INFORMATION TECHNOLOGY</div>
+
+<!-- ── ABOUT ── -->
+<section id="about">
+  <div class="section-label">About</div>
+  <div class="about-grid">
+    <div>
+      <h2 class="about-headline">Student. Worker.<br><em>Problem Solver.</em></h2>
+      <p class="about-text">I'm a junior at <strong>BYU–Hawaii</strong> studying Information Technology with minors in Business Management – Supply Chain Operations and Pacific Island Studies.</p>
+      <p class="about-text">I currently work as a <strong>Guest Experience Specialist</strong> at the Polynesian Cultural Center, where I co-launched a new department focused on customer journey mapping, quality assurance, and new product development.</p>
+      <p class="about-text">I take my work seriously, show up prepared, and genuinely care about the people and organizations I work with. I hold a <strong>Google Data Analytics Certificate</strong> and am always working to get better.</p>
+    </div>
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="stat-num">2027</div>
+        <div class="stat-label">Expected graduation</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">IT</div>
+        <div class="stat-label">B.S. · BYU–Hawaii</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">GXD</div>
+        <div class="stat-label">Co-launched at PCC</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">GDA</div>
+        <div class="stat-label">Google Certificate</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider-text" id="projects">PROJECTS · BUILT FOR PCC · REACT NATIVE · EXPO</div>
+
+<!-- ══════════════════════════════════════════
+     PROJECT 01 — GUEST XPERIENCE
+══════════════════════════════════════════ -->
+<div class="project-hero gxd">
+  <div class="ph-glow"></div>
+  <div class="ph-glow2"></div>
+  <div class="ph-inner">
+
+    <div class="ph-copy reveal">
+      <div class="ph-num">01</div>
+      <div class="ph-eyebrow">Internal Tool · Staff Operations · AI-Powered</div>
+      <h2 class="ph-title">GUEST<br>XPERIENCE</h2>
+      <p class="ph-subtitle">Operations, made intelligent.</p>
+      <p class="ph-desc">
+        A real-time staff operations platform built for PCC's Guest Experience Department. Guides track their daily schedule, monitor live sign counts with AI-powered capacity intelligence, coordinate canoe waves, and ping management — all from a single app authenticated via Google OAuth.
+      </p>
+      <div class="ph-tags">
+        <span class="ph-tag">React Native</span>
+        <span class="ph-tag">Expo</span>
+        <span class="ph-tag">Google OAuth</span>
+        <span class="ph-tag">Claude API</span>
+        <span class="ph-tag">Google Sheets</span>
+        <span class="ph-tag">5 User Roles</span>
+      </div>
+      <div class="ph-links">
+        <a href="https://github.com/eaiono66/guest-xperience" target="_blank" class="ph-link primary">
+          ↗ View on GitHub
+        </a>
+        <a href="#contact" class="ph-link ghost">Request Demo</a>
+      </div>
+    </div>
+
+    <!-- PHONE SCREENS — GXD TWO ROLES -->
+    <div class="ph-screens" style="height:auto;padding:60px 40px 40px;align-items:flex-start;">
+      <div class="two-roles-wrap" style="width:100%;padding:0;">
+        <p class="two-roles-label">Two roles · One system</p>
+        <div class="two-roles-grid">
+
+          <!-- Manager side -->
+          <div class="role-col reveal reveal-delay-1">
+            <div class="role-tag"><span>Manager</span> · Operations</div>
+            <div class="role-phone">
+              <div class="role-phone-notch"></div>
+              <img id="gxd-screen-manager" src="assets/screenshots/gxd-dashboard.png" alt="Guest Xperience — Manager Dashboard" loading="lazy"/>
+            </div>
+            <p class="role-caption">Live ops pulse, Huki seating, guide roster with dispatch status</p>
+          </div>
+
+          <!-- Center badge -->
+          <div class="roles-divider reveal">
+            <div class="roles-divider-line"></div>
+            <div class="roles-divider-badge">
+              <span class="roles-divider-title">GXD</span>
+              <span class="roles-divider-sub">One system</span>
+            </div>
+            <div class="roles-pills">
+              <span class="roles-pill">Live sign data</span>
+              <span class="roles-pill">Broadcasts</span>
+              <span class="roles-pill">Dispatch</span>
+              <span class="roles-pill">Schedules</span>
+            </div>
+            <div class="roles-divider-line"></div>
+          </div>
+
+          <!-- Guide side -->
+          <div class="role-col reveal reveal-delay-2">
+            <div class="role-tag"><span>Guide</span> · My Day</div>
+            <div class="role-phone">
+              <div class="role-phone-notch"></div>
+              <img id="gxd-screen-guide" src="assets/screenshots/gxd-myday.png" alt="Guest Xperience — Guide My Day" loading="lazy"/>
+            </div>
+            <p class="role-caption">Broadcast alerts, next group dispatch, sign updates at a glance</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- GXD Feature Strip -->
+<div class="feature-strip gxd-strip">
+
+  <div class="feature-card reveal">
+    <div class="feature-card-screen">
+      <img src="assets/screenshots/gxd-signs.png" alt="GXD — Signs capacity grid" loading="lazy"/>
+    </div>
+    <div class="feature-card-copy">
+      <div class="feature-card-num">01 — SIGNS</div>
+      <div class="feature-card-title">Live Sign Intelligence</div>
+      <div class="feature-card-desc">AI-powered capacity monitoring across 14 shows. Color-coded alerts, Normal / Busy Day thresholds, and per-guide drill-down with pax counts.</div>
+    </div>
+  </div>
+
+  <div class="feature-card reveal reveal-delay-1">
+    <div class="feature-card-screen">
+      <img src="assets/screenshots/gxd-schedule.png" alt="GXD — Guide schedule" loading="lazy"/>
+    </div>
+    <div class="feature-card-copy">
+      <div class="feature-card-num">02 — SCHEDULE</div>
+      <div class="feature-card-title">Smart Scheduling</div>
+      <div class="feature-card-desc">Island-by-island daily schedule with pre-show reminders, hidden gem callouts, and historical guide schedule data collected for ops analysis.</div>
+    </div>
+  </div>
+
+  <div class="feature-card reveal reveal-delay-2">
+    <div class="feature-card-screen">
+      <img src="assets/screenshots/gxd-help.png" alt="GXD — Help and emergency contacts" loading="lazy"/>
+    </div>
+    <div class="feature-card-copy">
+      <div class="feature-card-num">03 — HELP</div>
+      <div class="feature-card-title">Instant Contact</div>
+      <div class="feature-card-desc">One-tap emergency calls to First Aid, Security, and Maintenance. Guides ping management directly with context — question, guest issue, or urgent assist.</div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     PROJECT 02 — SMART ITINERARY BUILDER
+══════════════════════════════════════════ -->
+<div class="project-hero itin">
+  <div class="ph-glow"></div>
+  <div class="ph-glow2"></div>
+  <div class="ph-inner" style="direction:rtl">
+
+    <div class="ph-copy reveal" style="direction:ltr;padding:100px 80px 100px 64px">
+      <div class="ph-num" style="left:auto;right:60px">02</div>
+      <div class="ph-eyebrow">Guest App · AI · Product Design</div>
+      <h2 class="ph-title">SMART<br>ITINERARY<br>BUILDER</h2>
+      <p class="ph-subtitle">Your perfect PCC day, built in seconds.</p>
+      <p class="ph-desc">
+        A guest-facing app that generates a fully personalized day at PCC based on arrival time, group type, and ticket level — with real show photos, walking directions, hidden gem callouts, and contextual upgrade recommendations surfaced at exactly the right moment.
+      </p>
+      <div class="ph-tags">
+        <span class="ph-tag">React Native</span>
+        <span class="ph-tag">Expo</span>
+        <span class="ph-tag">Claude API</span>
+        <span class="ph-tag">Personalization</span>
+        <span class="ph-tag">Ticket Upgrades</span>
+      </div>
+      <div class="ph-links">
+        <a href="https://github.com/eaiono66" target="_blank" class="ph-link primary">
+          ↗ View on GitHub
+        </a>
+        <a href="#contact" class="ph-link ghost">Request Demo</a>
+      </div>
+    </div>
+
+    <!-- PHONE SCREENS — Itinerary Builder (3 screens) -->
+    <div class="ph-screens" style="direction:ltr">
+      <div class="phone-stage">
+
+        <div class="phone-frame phone-itin-l reveal reveal-delay-2">
+          <div class="phone-notch"></div>
+          <img id="itin-screen-l" src="assets/screenshots/itin-group.png" alt="Itinerary Builder — Group Type" loading="lazy"/>
+        </div>
+
+        <div class="phone-frame phone-itin-c reveal reveal-delay-1">
+          <div class="phone-notch"></div>
+          <img id="itin-screen-c" src="assets/screenshots/itin-schedule.png" alt="Itinerary Builder — Generated Schedule" loading="lazy"/>
+        </div>
+
+        <div class="phone-frame phone-itin-r reveal reveal-delay-2">
+          <div class="phone-notch"></div>
+          <img id="itin-screen-r" src="assets/screenshots/itin-building.png" alt="Itinerary Builder — Building Your Day" loading="lazy"/>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Itinerary Feature Strip -->
+<div class="feature-strip itin-strip">
+  <div class="feature-item reveal">
+    <div class="feature-icon">🗓️</div>
+    <div class="feature-title">Personalized Scheduling</div>
+    <div class="feature-desc">Claude API generates a custom itinerary from arrival time, group type, and ticket level — optimized for walking route and show timing.</div>
+  </div>
+  <div class="feature-item reveal reveal-delay-1">
+    <div class="feature-icon">💎</div>
+    <div class="feature-title">Hidden Gem Callouts</div>
+    <div class="feature-desc">Surfaces local-favorite shows most guests miss, complete with guide tips and attendance advisories pulled from real PCC operational data.</div>
+  </div>
+  <div class="feature-item reveal reveal-delay-2">
+    <div class="feature-icon">🎟️</div>
+    <div class="feature-title">Smart Upgrade Moments</div>
+    <div class="feature-desc">Contextual upgrade prompts appear at the end of the itinerary — "Make tonight unforgettable" — timed when guests are most engaged.</div>
+  </div>
+</div>
+
+
+<!-- ── EXPERIENCE ── -->
+<section id="experience">
+  <div class="section-label">Experience</div>
+  <div class="exp-grid">
+    <div class="exp-row reveal">
+      <div class="exp-date">2026 — Present</div>
+      <div>
+        <div class="exp-title">Guest Experience Specialist</div>
+        <div class="exp-org">Polynesian Cultural Center · Lā'ie, Hawai'i</div>
+        <div class="exp-desc">Co-launched the newly formed Guest Experience Department. Focused on customer journey mapping, quality assurance, benefit-cost analysis, and new product development. Presents findings to a president's board.</div>
+      </div>
+    </div>
+    <div class="exp-row reveal">
+      <div class="exp-date">2022 · 2025–2026</div>
+      <div>
+        <div class="exp-title">Tour Guide & Ambassador</div>
+        <div class="exp-org">Polynesian Cultural Center · Lā'ie, Hawai'i</div>
+        <div class="exp-desc">Led cultural tours for 2,000+ international guests at Hawaiʻi's premier paid visitor attraction. Directed logistics for groups up to 40 across villages, performances, and cultural events. Level 2 certification. Selected for high-visibility Super Ambassador tours.</div>
+      </div>
+    </div>
+    <div class="exp-row reveal">
+      <div class="exp-date">2023 — Present</div>
+      <div>
+        <div class="exp-title">B.S. Information Technology</div>
+        <div class="exp-org">BYU–Hawaii · Class of 2027</div>
+        <div class="exp-desc">Minors in Business Management – Supply Chain Operations & Analytics, and Pacific Island Studies. Coursework spans systems analysis, Linux administration, AWS, data analytics, and software development.</div>
+      </div>
+    </div>
+    <div class="exp-row reveal">
+      <div class="exp-date">2024</div>
+      <div>
+        <div class="exp-title">Google Data Analytics Certificate</div>
+        <div class="exp-org">Google · Coursera</div>
+        <div class="exp-desc">Completed professional certificate covering data cleaning, analysis, visualization, and storytelling with SQL, R, Tableau, and spreadsheets.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CONTACT ── -->
+<section id="contact">
+  <div class="section-label">Contact</div>
+  <div class="contact-inner">
+    <div>
+      <h2 class="contact-headline">LET'S<br><span>CONNECT</span></h2>
+      <p class="contact-text">Open to internships, part-time roles, and project collaborations in AI, data analytics, and operations.</p>
+      <div class="contact-links">
+        <a href="mailto:ezra.aiono@gmail.com" class="contact-link">
+          <span class="contact-link-icon">✉</span>
+          <span class="contact-link-text">ezra.aiono@gmail.com</span>
+        </a>
+        <a href="https://www.linkedin.com/in/ezra-aiono-446137221/" target="_blank" class="contact-link">
+          <span class="contact-link-icon">in</span>
+          <span class="contact-link-text">linkedin.com/in/ezra-aiono-446137221</span>
+        </a>
+      </div>
+    </div>
+    <form class="contact-form" action="https://formspree.io/f/xeewjael" method="POST">
+      <input class="form-field" type="text" name="name" placeholder="Your name" required/>
+      <input class="form-field" type="email" name="email" placeholder="Your email" required/>
+      <textarea class="form-field" rows="5" name="message" placeholder="Your message" required></textarea>
+      <button type="submit" class="btn btn-primary" style="align-self:flex-start">Send Message</button>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-text">© 2026 · EZRA AIONO · BYU–HAWAII</div>
+  <div class="footer-right">
+    <a href="#about" class="footer-link">About</a>
+    <a href="#projects" class="footer-link">Projects</a>
+    <a href="#contact" class="footer-link">Contact</a>
+  </div>
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   SCREENSHOT CONFIG — UPDATE THESE PATHS WHEN READY
+   
+   Put your final screenshots in an /assets/screenshots/ folder
+   in your GitHub repo, then update the paths below.
+   
+   Naming convention used:
+     gxd-splash.png      → GXD login screen
+     gxd-myday.png       → My Day dashboard
+     gxd-signs.png       → Sign Tracker
+     gxd-schedule.png    → Schedule screen
+     gxd-canoe.png       → Canoe screen
+     
+     itin-group.png      → Group type selection
+     itin-arrival.png    → Arrival time picker
+     itin-schedule.png   → Generated schedule (hero)
+     itin-upgrade.png    → Upgrade CTA screen
+     itin-ticket.png     → Ticket type selection
+═══════════════════════════════════════════════════════ */
+// Screenshots are set directly on img src attributes above.
+// To update, rename your files to match and place in assets/screenshots/:
+//
+//   GXD:
+//     gxd-dashboard.png   → Manager Dashboard
+//     gxd-myday.png       → Guide My Day
+//
+//   Itinerary Builder:
+//     itin-group.png      → Group type selection
+//     itin-schedule.png   → Generated schedule
+//     itin-building.png   → Building your day loading screen
+
+/* ═══════════════════════════════════════════════
+   SCROLL REVEAL
+═══════════════════════════════════════════════ */
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>

@@ -1,0 +1,260 @@
+TASK: Overhaul buildSmartRoute scheduling logic in src/lib/routing.ts
+
+Edit src/lib/routing.ts ONLY. Do NOT touch _layout.tsx. Do NOT restructure files.
+
+================================================================================
+UNDERSTANDING THE DESIRED SCHEDULE (read this first before touching any code)
+================================================================================
+
+For a 12:30 PM arrival, the correct schedule flow is:
+
+  12:30 PM — arrive, explore Samoa (connection village), do activities there
+  1:00 PM  — Huki show at the lagoon
+  1:20 PM  — Huki ends. Guest has ~40 min gap before 2 PM show.
+             Insert activities at the village where the 2 PM show will be.
+             This fills the gap naturally and positions them there early.
+  2:00 PM  — Village show #1 (top of hour)
+  3:00 PM  — Village show #2 (top of hour)
+  4:00 PM  — Village show #3 (top of hour)
+  5:00 PM  — Dinner
+
+Shows should target the TOP OF THE HOUR (2:00, 3:00, 4:00).
+Samoa should NOT be forced as the 4 PM anchor — it should be treated like
+any other village in the rotation. The Fire Knife special-case block must
+be removed. All 6 villages compete equally for the 3 show slots.
+
+Activities appear in TWO places only:
+  1. Between Huki end (1:20 PM) and the 2:00 PM show — at the 2 PM village
+  2. After the LAST show of the day (4:00 PM) — NO activities after the last show.
+     Activities must never be appended after the final show stop.
+
+================================================================================
+CHANGE 1 — Replace getBestShow to strongly prefer top-of-hour slots
+================================================================================
+
+Find the entire getBestShow function and replace it with this:
+
+function getBestShow(
+  village: string, afterMin: number, preferredShows: string[], cutoffMin: number,
+  fromVillage: string = 'entrance'
+): { name: string; time: string; timeMin: number } | null {
+  const villageShows = SHOWS[village];
+  if (!villageShows) return null;
+
+  const candidates: { name: string; time: string; timeMin: number; score: number }[] = [];
+
+  for (const [name, times] of Object.entries(villageShows)) {
+    for (const { time, crowd_density } of times) {
+      const timeMin = toMinutes(time);
+      if (timeMin < afterMin) continue;
+      if (timeMin > cutoffMin) continue;
+
+      const interestMatch  = preferredShows.includes(name) ? 10 : 0;
+      const crowdScore     = 8 * (1 - crowd_density);
+      const proximityScore = getWalkTime(fromVillage, village) <= ADJACENCY_WALK_MIN ? 4 : 0;
+      // Strongly prefer top-of-hour slots (XX:00) over half-hour slots
+      const topOfHourBonus = timeMin % 60 === 0 ? 6 : 0;
+      const jitter = Math.random() * 1.5;
+      candidates.push({
+        name, time, timeMin,
+        score: interestMatch + crowdScore + proximityScore + topOfHourBonus + jitter,
+      });
+    }
+  }
+  if (!candidates.length) return null;
+
+  candidates.sort((a, b) => b.score - a.score || a.timeMin - b.timeMin);
+  return weightedRandomSelect(candidates.slice(0, 3));
+}
+
+================================================================================
+CHANGE 2 — Replace the entire buildSmartRoute function
+================================================================================
+
+Find the entire buildSmartRoute function (from "function buildSmartRoute(" to
+its closing "}" before "function buildLateRoute") and replace it with this:
+
+function buildSmartRoute(
+  arrMin: number, priority: string[], preferredShows: string[],
+  isBusy: boolean, lastShowCutoff: number,
+  interests: string[] = [], energy: string = 'medium', group: string = 'solo'
+): ScheduleStop[] {
+  const stops: ScheduleStop[] = [];
+  const usedVillages = new Set<string>();
+  let curMin = arrMin;
+  let lastVillage: string | null = null;
+  let canoeUsed = false;
+
+  // Tracks which stop index is the last show — used to suppress activities after it
+  let lastShowIndex = -1;
+
+  function addStop(stop: ScheduleStop | null) {
+    if (!stop) return;
+    stops.push(stop);
+    const dur = stop.type === 'canoe' ? TIMING.CANOE_DURATION_MIN : TIMING.SHOW_DURATION_MIN;
+    curMin = stop.timeMin + dur;
+    if (stop.type === 'canoe') canoeUsed = true;
+    if (stop.type === 'show') {
+      lastVillage = stop.village.toLowerCase();
+      lastShowIndex = stops.length - 1;
+    }
+  }
+
+  // Phase 1: Huki
+  const hukiMin = toMinutes(SPECIAL_EVENTS.huki.time);
+  const hukiEndMin = toMinutes(SPECIAL_EVENTS.huki.endTime);
+  if (arrMin <= hukiMin) {
+    addStop({
+      time: timeToDisplay(SPECIAL_EVENTS.huki.time), timeMin: hukiMin,
+      type: 'huki', village: 'All Villages',
+      title: SPECIAL_EVENTS.huki.title, desc: SPECIAL_EVENTS.huki.desc,
+      flags: ['dont_miss'],
+    });
+    curMin = hukiEndMin;
+  } else if (arrMin > hukiMin && arrMin < hukiEndMin) {
+    curMin = hukiEndMin;
+  }
+
+  // Phase 2: Build 3 show slots targeting 2:00, 3:00, 4:00 PM
+  // Pick the best available village for each target hour from the priority list.
+  const targetHours = [
+    toMinutes('14:00'),
+    toMinutes('15:00'),
+    toMinutes('16:00'),
+  ].filter(t => t >= curMin && t <= lastShowCutoff);
+
+  // All villages in priority order — no village is excluded or forced
+  const allVillages = priority.filter(v => !usedVillages.has(v));
+
+  // For each target hour, find the best village+show combination
+  for (const targetMin of targetHours) {
+    let bestVillage: string | null = null;
+    let bestShow: { name: string; time: string; timeMin: number } | null = null;
+    let bestScore = -1;
+
+    for (const v of allVillages) {
+      if (usedVillages.has(v)) continue;
+      const from = lastVillage ?? 'entrance';
+      // afterMin is the walk time from current position to this village
+      const afterMin = Math.max(curMin + getWalkTime(from, v), targetMin - 10);
+      if (!isTransitionValid(lastVillage, v, canoeUsed, false)) continue;
+
+      const show = getBestShow(v, afterMin, preferredShows, lastShowCutoff, from);
+      if (!show) continue;
+
+      // Score: prefer shows closer to the target hour
+      const timeDiff = Math.abs(show.timeMin - targetMin);
+      const score = 100 - timeDiff + (preferredShows.includes(show.name) ? 20 : 0);
+      if (score > bestScore) {
+        bestScore = score;
+        bestVillage = v;
+        bestShow = show;
+      }
+    }
+
+    if (bestVillage && bestShow) {
+      // Insert canoe if needed to reach northern villages
+      const needsCanoe = !canoeUsed &&
+        ['tahiti', 'hawaii', 'aotearoa'].includes(bestVillage) &&
+        ['samoa', 'tonga'].includes(lastVillage ?? '');
+      if (needsCanoe) {
+        const canoeMin = getNextCanoeTime(curMin, 'north');
+        if (canoeMin && canoeMin + TIMING.CANOE_DURATION_MIN <= bestShow.timeMin) {
+          addStop(buildCanoeStop(canoeMin, 'north'));
+        }
+      }
+
+      addStop(buildShowStop(
+        bestVillage, bestShow.name, bestShow.time,
+        isBusy, usedVillages, interests, energy, group
+      ));
+    }
+  }
+
+  // Phase 3: Insert activities ONLY between Huki end and the 2 PM show
+  // Find the 2 PM show stop and insert activities before it at the same village
+  const firstShowStop = stops.find(s => s.type === 'show');
+  if (firstShowStop && hukiEndMin < firstShowStop.timeMin) {
+    const gapStart = hukiEndMin;
+    const gapEnd = firstShowStop.timeMin - 5; // 5 min buffer before show
+    const actVillage = firstShowStop.village.toLowerCase();
+    const acts = assignActivities(actVillage, interests, energy, group);
+
+    let actMin = gapStart;
+    const activityInserts: ScheduleStop[] = [];
+    for (const actName of acts) {
+      if (actMin + 15 > gapEnd) break;
+      activityInserts.push({
+        time: toDisplayTime(actMin), timeMin: actMin,
+        type: 'activity', village: firstShowStop.village,
+        title: actName, desc: '', flags: [],
+      });
+      actMin += 15;
+    }
+
+    // Insert activities into stops array right before the first show
+    const firstShowIdx = stops.findIndex(s => s.type === 'show');
+    stops.splice(firstShowIdx, 0, ...activityInserts);
+  }
+
+  return stops.filter(Boolean) as ScheduleStop[];
+}
+
+================================================================================
+CHANGE 3 — Remove activities from addStop entirely (they are now handled above)
+================================================================================
+
+The new addStop function inside buildSmartRoute (already written above in CHANGE 2)
+does NOT include any activity loop. This is intentional. Activities are inserted
+only in Phase 3 above (between Huki and 2 PM show). Do not add activity logic
+back into addStop.
+
+================================================================================
+CHANGE 4 — No activities after the last show in buildLateRoute
+================================================================================
+
+In buildLateRoute, find the activity loop:
+
+    let actMin = curMin;
+    for (const actName of (stop.activities ?? [])) {
+      stops.push({
+        time: toDisplayTime(actMin), timeMin: actMin,
+        type: 'activity', village: stop.village,
+        title: actName, desc: '', flags: [],
+      });
+      actMin += 15;
+    }
+    // curMin stays at showTime + SHOW_DURATION_MIN — not pushed forward by activities
+    lastVillage = v;
+
+Replace the entire for loop and comment with just:
+
+    lastVillage = v;
+
+(Remove the activity loop from buildLateRoute entirely — late arrivals get no activities.)
+
+================================================================================
+VERIFICATION
+================================================================================
+
+After all changes run:
+  npx tsc --noEmit
+
+Zero errors required. Fix any TypeScript errors before finishing.
+
+Then verify mentally for a 12:30 PM arrival with Samoa connection:
+  - 1:00 PM  Huki
+  - 1:20 PM  Activities at the village of the 2 PM show (filling the gap)
+  - 2:00 PM  Village show #1 (top of hour)
+  - 3:00 PM  Village show #2 (top of hour)
+  - 4:00 PM  Village show #3 (top of hour) — could be ANY village, not just Samoa
+  - NO activities appended after the 4:00 PM show
+  - NO shows at or after 5:00 PM
+
+================================================================================
+RULES
+================================================================================
+- Edit src/lib/routing.ts ONLY
+- Do NOT touch _layout.tsx
+- Do NOT restructure any files
+- Run npx tsc --noEmit after changes and fix all errors before finishing

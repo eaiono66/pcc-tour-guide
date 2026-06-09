@@ -16,106 +16,43 @@ export const CANOE = {
   akau: { label: 'Akau (North Landing)', direction: 'south', opensAt: '14:00', closesAt: '17:00' },
 };
 
-export interface ShowTime {
-  time: string;
-  crowd_density: number;
-}
-
-export const SHOWS: Record<string, Record<string, ShowTime[]>> = {
+export const SHOWS: Record<string, Record<string, string[]>> = {
   samoa: {
-    'Tree of Life': [
-      { time: '12:30', crowd_density: 0.88 },
-      { time: '14:00', crowd_density: 0.52 },
-      { time: '15:00', crowd_density: 0.45 },
-      { time: '16:30', crowd_density: 0.38 },
-    ],
-    'Traditional Cooking': [
-      { time: '13:30', crowd_density: 0.72 },
-      { time: '14:30', crowd_density: 0.48 },
-    ],
-    'Traditional Food Tasting': [
-      { time: '15:30', crowd_density: 0.42 },
-    ],
-    'Tree of Life & Fire Knife': [
-      { time: '15:30', crowd_density: 0.58 },
-      { time: '16:00', crowd_density: 0.50 },
-    ],
+    'Tree of Life':               ['12:30','14:00','15:00','16:30'],
+    'Traditional Cooking':        ['13:30','14:30'],
+    'Traditional Food Tasting':   ['15:30'],
+    'Tree of Life & Fire Knife':  ['15:30','16:00'],
   },
   aotearoa: {
-    'Te Whare Tapere': [
-      { time: '12:30', crowd_density: 0.65 },
-    ],
-    'Toi Whakaari Māori': [
-      { time: '14:00', crowd_density: 0.50 },
-      { time: '15:00', crowd_density: 0.46 },
-      { time: '16:00', crowd_density: 0.40 },
-    ],
-    'Mau Rākau (Māori Weaponry)': [
-      { time: '14:30', crowd_density: 0.55 },
-      { time: '15:30', crowd_density: 0.44 },
-    ],
+    'Te Whare Tapere':            ['12:30','17:00'],
+    'Toi Whakaari Māori':         ['14:00','15:00','16:00'],
+    'Mau Rākau (Māori Weaponry)': ['14:30','15:30'],
   },
   fiji: {
-    'Derua Instrument Activity': [
-      { time: '12:30', crowd_density: 0.70 },
-    ],
-    'Canoe & Navigation Stories': [
-      { time: '13:30', crowd_density: 0.68 },
-      { time: '16:30', crowd_density: 0.40 },
-    ],
-    'Migration through Chants & Dance': [
-      { time: '14:00', crowd_density: 0.58 },
-      { time: '15:00', crowd_density: 0.50 },
-      { time: '16:00', crowd_density: 0.45 },
-    ],
-    'Derua Presentation': [
-      { time: '14:30', crowd_density: 0.42 },
-      { time: '15:30', crowd_density: 0.40 },
-    ],
+    'Derua Instrument Activity':         ['12:30','17:00'],
+    'Canoe & Navigation Stories':        ['13:30','16:30'],
+    'Migration through Chants & Dance':  ['14:00','15:00','16:00'],
+    'Derua Presentation':                ['14:30','15:30'],
   },
   hawaii: {
-    "Kūpa'a Hawai'i: Stories of Aloha": [
-      { time: '13:30', crowd_density: 0.75 },
-      { time: '14:30', crowd_density: 0.52 },
-      { time: '15:30', crowd_density: 0.46 },
-      { time: '16:30', crowd_density: 0.38 },
-    ],
+    "Kūpa'a Hawai'i: Stories of Aloha": ['13:30','14:30','15:30','16:30','17:00'],
   },
   tahiti: {
-    'Rhythms of the Islands': [
-      { time: '12:30', crowd_density: 0.62 },
-      { time: '13:30', crowd_density: 0.70 },
-      { time: '16:30', crowd_density: 0.36 },
-    ],
-    'Tahiti Dance': [
-      { time: '14:00', crowd_density: 0.48 },
-      { time: '15:00', crowd_density: 0.44 },
-    ],
-    'Tahitian Wedding Ceremony': [
-      { time: '14:30', crowd_density: 0.56 },
-      { time: '15:30', crowd_density: 0.50 },
-    ],
-    'Intro to French Polynesia': [
-      { time: '14:30', crowd_density: 0.40 },
-    ],
+    'Rhythms of the Islands':    ['12:30','13:30','16:30'],
+    'Tahiti Dance':               ['14:00','15:00'],
+    'Tahitian Wedding Ceremony': ['14:30','15:30'],
+    'Intro to French Polynesia': ['14:30'],
   },
   tonga: {
-    'Cultural Core Values': [
-      { time: '12:30', crowd_density: 0.78 },
-    ],
-    'Cultural Core Values & the Nafa': [
-      { time: '14:00', crowd_density: 0.60 },
-      { time: '15:00', crowd_density: 0.52 },
-      { time: '16:00', crowd_density: 0.46 },
-      { time: '16:30', crowd_density: 0.40 },
-    ],
+    'Cultural Core Values':             ['12:30'],
+    'Cultural Core Values & the Nafa':  ['14:00','15:00','16:00','16:30'],
   },
 };
 
 export const SPECIAL_EVENTS = {
   huki: {
     title: 'Huki — A Canoe Celebration',
-    time: '13:00', endTime: '13:20',
+    time: '12:40', endTime: '13:00',
     desc: "Head to the lagoon — this canoe-side show only happens once a day. Don't miss it!",
   },
 };
@@ -186,7 +123,7 @@ export const TICKETS: Record<string, Ticket> = {
     desc: 'Self-guided villages + island buffet dinner + Hā Silver seating',
     hasDinner: true, hasShow: true, badge: 'popular',
     dinnerTitle: 'Gateway Buffet',
-    dinnerDesc: 'Gateway Buffet opens at 4:30 PM and runs until 6:30 PM — head over when you\'re ready.',
+    dinnerDesc: 'Gateway Buffet opens at 5:30 PM and runs until 7:30 PM — head over when you\'re ready.',
   },
   'self-alii': {
     id: 'self-alii', name: "Self-Guided Ali'i Lū'au",

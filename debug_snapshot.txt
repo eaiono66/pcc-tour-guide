@@ -1,0 +1,913 @@
+import {
+  ADJACENCY, CANOE, CROWD_FLAGS, GROUP_VILLAGE_PRIORITY,
+  INTEREST_SHOWS, INTEREST_VILLAGE_BOOST, SHOWS,
+  SPECIAL_EVENTS, TICKETS, TIMING, VILLAGE_ACTIVITIES, VILLAGE_NUMBER,
+} from './data';
+
+export interface ScheduleStop {
+  time: string;
+  timeMin: number;
+  type: 'show' | 'activity' | 'canoe' | 'huki' | 'dinner' | 'foodtruck' | 'ha_show';
+  village: string;
+  title: string;
+  desc: string;
+  flags: string[];
+  highlight?: boolean;
+  activities?: string[];
+}
+
+export interface ScheduleResult {
+  stops: ScheduleStop[];
+  isLate: boolean;
+  needsUpgrade: boolean;
+  islandsOnly: boolean;
+  canoeUsed: boolean;
+}
+
+const WALKING_MATRIX: Record<string, Record<string, number>> = {
+  entrance: { samoa: 3, tonga: 5, fiji: 7, hawaii: 10, aotearoa: 12, tahiti: 14 },
+  samoa:    { entrance: 3, tonga: 4, fiji: 8, hawaii: 12, aotearoa: 14, tahiti: 15 },
+  tonga:    { entrance: 5, samoa: 4, fiji: 5, hawaii: 9,  aotearoa: 11, tahiti: 12 },
+  fiji:     { entrance: 7, samoa: 8, tonga: 5, hawaii: 6, aotearoa: 8,  tahiti: 10 },
+  hawaii:   { entrance: 10, samoa: 12, tonga: 9, fiji: 6, aotearoa: 5,  tahiti: 5  },
+  aotearoa: { entrance: 12, samoa: 14, tonga: 11, fiji: 8, hawaii: 5,   tahiti: 4  },
+  tahiti:   { entrance: 14, samoa: 15, tonga: 12, fiji: 10, hawaii: 5,  aotearoa: 4 },
+};
+
+export function getWalkTime(from: string, to: string): number {
+  return WALKING_MATRIX[from.toLowerCase()]?.[to.toLowerCase()] ?? 8;
+}
+
+export function toMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+export function toDisplayTime(totalMins: number): string {
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+function timeToDisplay(time: string): string {
+  return toDisplayTime(toMinutes(time));
+}
+
+function isTransitionValid(
+  from: string | null, to: string, canoeUsed: boolean, canoeIsNext: boolean
+): boolean {
+  if (!from || !to) return true;
+  const fromNum = VILLAGE_NUMBER[from];
+  const toNum   = VILLAGE_NUMBER[to];
+  const rule    = ADJACENCY[`${fromNum}-${toNum}`];
+  if (!rule || rule === 'ok') return true;
+  if (rule === 'before') return canoeUsed;
+  if (rule === 'after')  return canoeIsNext;
+  if (rule === 'btw')    return false;
+  return true;
+}
+
+function getNextCanoeTime(afterMin: number, direction: 'north' | 'south'): number | null {
+  const landing   = direction === 'north' ? CANOE.hema : CANOE.akau;
+  const opensMin  = toMinutes(landing.opensAt);
+  const closesMin = toMinutes(landing.closesAt);
+  const earliest  = Math.max(afterMin, opensMin);
+  return earliest < closesMin ? earliest : null;
+}
+
+function buildCanoeStop(timeMin: number, direction: 'north' | 'south'): ScheduleStop {
+  const landing = direction === 'north' ? CANOE.hema : CANOE.akau;
+  const dest    = direction === 'north' ? 'northern villages' : 'southern villages';
+  return {
+    time: toDisplayTime(timeMin), timeMin,
+    type: 'canoe', village: 'Lagoon',
+    title: `Canoe Ride — ${landing.label}`,
+    desc: `Board at ${landing.label} and ride to the ${dest}. One-way scenic trip — canoes run continuously, just show up.`,
+    flags: ['transport'],
+  };
+}
+
+const ADJACENCY_WALK_MIN = 5;
+
+function weightedRandomSelect<T extends { score: number }>(candidates: T[]): T {
+  const total = candidates.reduce((sum, c) => sum + c.score, 0);
+  let rand = Math.random() * total;
+  for (const c of candidates) {
+    rand -= c.score;
+    if (rand <= 0) return c;
+  }
+  return candidates[candidates.length - 1];
+}
+
+function getBestShow(
+  village: string, afterMin: number, preferredShows: string[], cutoffMin: number,
+  fromVillage: string = 'entrance'
+): { name: string; time: string; timeMin: number } | null {
+  const villageShows = SHOWS[village];
+  if (!villageShows) return null;
+
+  const candidates: { name: string; time: string; timeMin: number; score: number }[] = [];
+
+  for (const [name, times] of Object.entries(villageShows)) {
+    for (const { time, crowd_density } of times) {
+      const timeMin = toMinutes(time);
+      if (timeMin < afterMin) continue;
+      if (timeMin > cutoffMin) continue;
+
+      const interestMatch  = preferredShows.includes(name) ? 10 : 0;
+      const crowdScore     = 8 * (1 - crowd_density);
+      const proximityScore = getWalkTime(fromVillage, village) <= ADJACENCY_WALK_MIN ? 4 : 0;
+      candidates.push({ name, time, timeMin, score: interestMatch + crowdScore + proximityScore });
+    }
+  }
+  if (!candidates.length) return null;
+
+  candidates.sort((a, b) => b.score - a.score || a.timeMin - b.timeMin);
+  return weightedRandomSelect(candidates.slice(0, 2));
+}
+
+function getPreferredShows(interests: string[]): string[] {
+  const preferred = new Set<string>();
+  interests.forEach(i => (INTEREST_SHOWS[i] || []).forEach(s => preferred.add(s)));
+  return [...preferred];
+}
+
+function getPriorityVillages(group: string, interests: string[], connection: string[]): string[] {
+  const priority: string[] = [];
+  const addUnique = (v: string) => { if (!priority.includes(v)) priority.push(v); };
+
+  connection.filter(c => c !== 'none').forEach(addUnique);
+  interests.forEach(i => (INTEREST_VILLAGE_BOOST[i] || []).forEach(addUnique));
+  const defaults = GROUP_VILLAGE_PRIORITY[group] || GROUP_VILLAGE_PRIORITY.solo;
+  defaults.forEach(addUnique);
+  return priority;
+}
+
+function assignActivities(
+  village: string,
+  interests: string[],
+  energy: string,
+  group: string
+): string[] {
+  const activities = VILLAGE_ACTIVITIES[village.toLowerCase()];
+  if (!activities) return [];
+
+  const energyRank: Record<string, number> = { low: 0, medium: 1, high: 2 };
+  const guestEnergy = energyRank[energy] ?? 1;
+
+  return activities
+    .filter(a => {
+      if (energyRank[a.energyMin] > guestEnergy) return false;
+      if (group === 'family_kids' && a.ageMin > 8) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const aScore = a.tags.filter(t => interests.includes(t)).length;
+      const bScore = b.tags.filter(t => interests.includes(t)).length;
+      return bScore - aScore;
+    })
+    .slice(0, 3)
+    .map(a => a.name);
+}
+
+function buildShowStop(
+  village: string,
+  showName: string,
+  time: string,
+  isBusy: boolean,
+  usedVillages: Set<string>,
+  interests: string[] = [],
+  energy: string = 'medium',
+  group: string = 'solo',
+  highlight = false
+): ScheduleStop | null {
+  if (usedVillages.has(village)) return null;
+  usedVillages.add(village);
+
+  const timeMin   = toMinutes(time);
+  const crowdInfo = CROWD_FLAGS[showName];
+  const flags: string[] = [];
+  let desc = '';
+
+  if (crowdInfo) {
+    flags.push(isBusy && crowdInfo.flag === 'early' ? 'busy_early' : crowdInfo.flag);
+    desc = isBusy
+      ? crowdInfo.note.replace('5-10 mins', '10-15 mins').replace('a few mins', '7-10 mins')
+      : crowdInfo.note;
+  }
+
+  return {
+    time: timeToDisplay(time), timeMin, type: 'show',
+    village: village.charAt(0).toUpperCase() + village.slice(1),
+    title: showName, desc, flags, highlight,
+    activities: assignActivities(village, interests, energy, group),
+  };
+}
+
+function buildSmartRoute(
+  arrMin: number, priority: string[], preferredShows: string[],
+  isBusy: boolean, lastShowCutoff: number,
+  interests: string[] = [], energy: string = 'medium', group: string = 'solo'
+): ScheduleStop[] {
+  const stops: ScheduleStop[] = [];
+  const usedVillages = new Set<string>();
+  let curMin = arrMin;
+  let lastVillage: string | null = null;
+  let canoeUsed = false;
+
+  function addStop(stop: ScheduleStop | null) {
+    if (!stop) return;
+    stops.push(stop);
+    const dur = stop.type === 'canoe' ? TIMING.CANOE_DURATION_MIN : TIMING.SHOW_DURATION_MIN;
+    curMin = stop.timeMin + dur;
+    if (stop.type === 'canoe') canoeUsed = true;
+    if (stop.type === 'show') {
+      lastVillage = stop.village.toLowerCase();
+      let actMin = stop.timeMin + TIMING.SHOW_DURATION_MIN;
+      for (const actName of (stop.activities ?? [])) {
+        stops.push({
+          time: toDisplayTime(actMin), timeMin: actMin,
+          type: 'activity', village: stop.village,
+          title: actName, desc: '', flags: [],
+        });
+        actMin += 15;
+      }
+      // curMin is NOT advanced by activities — activities happen during village dwell time
+      // curMin already = stop.timeMin + SHOW_DURATION_MIN from the line above
+    }
+  }
+
+  // Phase 1: Huki
+  const hukiMin = toMinutes(SPECIAL_EVENTS.huki.time);
+  if (arrMin <= hukiMin) {
+    addStop({
+      time: timeToDisplay(SPECIAL_EVENTS.huki.time), timeMin: hukiMin,
+      type: 'huki', village: 'All Villages',
+      title: SPECIAL_EVENTS.huki.title, desc: SPECIAL_EVENTS.huki.desc,
+      flags: ['dont_miss'],
+    });
+    curMin = toMinutes(SPECIAL_EVENTS.huki.endTime);
+  }
+
+  // TODO 4: Track the guest's traversal direction off arrival time — fixes the 12:30 PM Samoa bottleneck
+  const southFirst  = arrMin < toMinutes('13:00');
+  const trackOrder  = southFirst
+    ? ['samoa', 'tonga', 'fiji', 'aotearoa', 'hawaii', 'tahiti']   // South-First: Samoa → Tahiti
+    : ['tahiti', 'hawaii', 'aotearoa', 'fiji', 'tonga', 'samoa'];  // North-First: Tahiti → Samoa
+  const orderedPool = trackOrder.filter(v => priority.includes(v));
+
+  const southVillages  = orderedPool.filter(v => ['samoa','tonga'].includes(v));
+  const northVillages  = orderedPool.filter(v => ['tahiti','hawaii'].includes(v));
+  const middleVillages = orderedPool.filter(v => ['aotearoa','fiji'].includes(v));
+  const goingNorth     = northVillages.length > 0;
+
+  function visitVillages(villages: string[]) {
+    for (const v of villages) {
+      if (usedVillages.has(v)) continue;
+      const from = lastVillage ?? 'entrance';
+      const show = getBestShow(v, curMin + getWalkTime(from, v), preferredShows, lastShowCutoff, from);
+      if (!show || !isTransitionValid(lastVillage, v, canoeUsed, false)) continue;
+      addStop(buildShowStop(v, show.name, show.time, isBusy, usedVillages, interests, energy, group));
+    }
+  }
+
+  function canoeNorth() {
+    if (goingNorth && !canoeUsed && curMin <= toMinutes('16:30')) {
+      const canoeMin = getNextCanoeTime(curMin, 'north');
+      if (canoeMin) addStop(buildCanoeStop(canoeMin, 'north'));
+    }
+  }
+
+  function visitRemainingMiddle() {
+    for (const v of middleVillages) {
+      if (usedVillages.has(v)) continue;
+      if (curMin >= toMinutes('15:30')) break;
+      visitVillages([v]);
+    }
+  }
+
+  if (southFirst) {
+    // South-First track: clear the southern villages (minus Samoa) before heading north
+    visitVillages(southVillages.filter(v => v !== 'samoa'));
+    canoeNorth();
+    visitVillages([...northVillages, ...middleVillages.filter(v => !usedVillages.has(v))]);
+    visitRemainingMiddle();
+  } else {
+    // North-First track: head toward Tahiti first, then work back south toward Samoa
+    canoeNorth();
+    visitVillages([...northVillages, ...middleVillages.filter(v => !usedVillages.has(v))]);
+    visitRemainingMiddle();
+    visitVillages(southVillages.filter(v => v !== 'samoa'));
+  }
+
+  // Phase 6: 4PM Samoa Fire Knife
+  const fireKnifeMin     = toMinutes('16:00');
+  const preShowBufferMin = toMinutes('15:40');
+
+  const walkToSamoa = getWalkTime(lastVillage ?? 'entrance', 'samoa');
+  if (!usedVillages.has('samoa') && curMin + walkToSamoa <= preShowBufferMin && fireKnifeMin <= lastShowCutoff) {
+    if (lastVillage && ['hawaii','tahiti'].includes(lastVillage) && !canoeUsed) {
+      const canoeMin = getNextCanoeTime(curMin, 'south');
+      if (canoeMin && canoeMin + TIMING.CANOE_DURATION_MIN <= preShowBufferMin) {
+        addStop(buildCanoeStop(canoeMin, 'south'));
+        lastVillage = null;
+      }
+    }
+    if (isTransitionValid(lastVillage, 'samoa', canoeUsed, false)) {
+      addStop(buildShowStop('samoa', 'Tree of Life & Fire Knife', '16:00', isBusy, usedVillages, interests, energy, group, true));
+    }
+  } else if (!usedVillages.has('samoa')) {
+    const from = lastVillage ?? 'entrance';
+    const samoaShow = getBestShow('samoa', curMin + getWalkTime(from, 'samoa'), preferredShows, lastShowCutoff, from);
+    if (samoaShow && isTransitionValid(lastVillage, 'samoa', canoeUsed, false)) {
+      addStop(buildShowStop('samoa', samoaShow.name, samoaShow.time, isBusy, usedVillages, interests, energy, group));
+    }
+  }
+
+  return stops.filter(Boolean) as ScheduleStop[];
+}
+
+function buildLateRoute(
+  arrMin: number, priority: string[], isBusy: boolean, lastShowCutoff: number,
+  interests: string[] = [], energy: string = 'medium', group: string = 'solo'
+): ScheduleStop[] {
+  const stops: ScheduleStop[] = [];
+  const usedVillages = new Set<string>();
+  let curMin = arrMin;
+  let lastVillage: string | null = null;
+
+  for (const v of priority.slice(0, 3)) {
+    if (usedVillages.has(v)) continue;
+    const from = lastVillage ?? 'entrance';
+    const show = getBestShow(v, curMin + getWalkTime(from, v), [], lastShowCutoff, from);
+    if (!show || !isTransitionValid(lastVillage, v, false, false)) continue;
+    const stop = buildShowStop(v, show.name, show.time, isBusy, usedVillages, interests, energy, group);
+    if (!stop) continue;
+    stops.push(stop);
+    curMin = stop.timeMin + TIMING.SHOW_DURATION_MIN;
+    let actMin = curMin;
+    for (const actName of (stop.activities ?? [])) {
+      stops.push({
+        time: toDisplayTime(actMin), timeMin: actMin,
+        type: 'activity', village: stop.village,
+        title: actName, desc: '', flags: [],
+      });
+      actMin += 15;
+    }
+    // curMin stays at showTime + SHOW_DURATION_MIN — not pushed forward by activities
+    lastVillage = v;
+  }
+  return stops;
+}
+
+export function buildSchedule(params: {
+  arrival: string; group: string; interests: string[];
+  connection: string[]; ticket: string; isBusy: boolean; energy?: string;
+}): ScheduleResult {
+  const { arrival, group, interests, connection, ticket, isBusy, energy = 'medium' } = params;
+  const ticketData   = TICKETS[ticket];
+  const arrMin       = toMinutes(arrival);
+  const isLateArrival = arrMin >= toMinutes('16:30');
+
+  const lastShowCutoff = ticketData.hasDinner
+    ? toMinutes(TIMING.DINNER_CUTOFF)
+    : toMinutes('17:00');
+
+  const priority       = getPriorityVillages(group, interests, connection);
+  const preferredShows = getPreferredShows(interests);
+
+  let stops: ScheduleStop[] = isLateArrival
+    ? buildLateRoute(arrMin, priority, isBusy, lastShowCutoff, interests, energy, group)
+    : buildSmartRoute(arrMin, priority, preferredShows, isBusy, lastShowCutoff, interests, energy, group);
+
+  stops = stops
+    .filter(s => s.timeMin >= arrMin)
+    .sort((a, b) => a.timeMin - b.timeMin);
+
+  // End-of-day south positioning
+  const lastVillageStop  = [...stops].reverse().find(s => s.type === 'show');
+  const canoeAlreadyUsed = stops.some(s => s.type === 'canoe');
+  const northEndVillages = new Set(['hawaii','tahiti']);
+
+  if (lastVillageStop && !canoeAlreadyUsed && northEndVillages.has(lastVillageStop.village.toLowerCase())) {
+    const walkToLanding  = getWalkTime(lastVillageStop.village.toLowerCase(), 'entrance');
+    const afterLastShow  = lastVillageStop.timeMin + TIMING.SHOW_DURATION_MIN + walkToLanding;
+    const canoeMin       = getNextCanoeTime(afterLastShow, 'south');
+    if (canoeMin && canoeMin <= toMinutes('17:00')) {
+      stops.push(buildCanoeStop(canoeMin, 'south'));
+      stops.sort((a, b) => a.timeMin - b.timeMin);
+    }
+  }
+
+  if (ticketData.hasDinner) {
+    stops.push({
+      time: '5:30 PM', timeMin: toMinutes('17:30'),
+      type: 'dinner', village: 'Dining',
+      title: ticketData.dinnerTitle!, desc: ticketData.dinnerDesc!, flags: [],
+    });
+  }
+
+  if (!ticketData.hasDinner) {
+    stops.push({
+      time: '5:00 PM', timeMin: toMinutes('17:00'),
+      type: 'foodtruck',
+      village: 'Dining',
+      title: 'Dinner — Your Choice',
+      desc: 'Hukilau Marketplace is steps away — Pounders Restaurant (sit-down) and food trucks available. Or head out to explore nearby Lāʻie.',
+      flags: ['dining_choice'],
+    });
+  }
+
+  if (ticketData.hasShow) {
+    stops.push({
+      time: '7:30 PM', timeMin: toMinutes('19:30'),
+      type: 'ha_show', village: 'Hā Theater',
+      title: 'Hā: Breath of Life',
+      desc: 'Seating opens at 7:00 PM — head to the Hā Theater early for the best seats. Show starts at 7:30 PM.',
+      flags: ['dont_miss'],
+    });
+  }
+
+  return {
+    stops,
+    isLate: isLateArrival,
+    needsUpgrade: ticket === 'islands',
+    islandsOnly: !ticketData.hasDinner,
+    canoeUsed: stops.some(s => s.type === 'canoe'),
+  };
+}
+export const VILLAGE_NUMBER: Record<string, number> = {
+  samoa: 1, aotearoa: 2, fiji: 3, hawaii: 4, tahiti: 5, tonga: 6,
+};
+
+export const ADJACENCY: Record<string, string> = {
+  '1-2':'ok',  '1-3':'ok',  '1-4':'btw', '1-5':'btw', '1-6':'ok',
+  '2-1':'ok',  '2-3':'ok',  '2-4':'ok',  '2-5':'after','2-6':'ok',
+  '3-1':'ok',  '3-2':'ok',  '3-4':'ok',  '3-5':'after','3-6':'ok',
+  '4-1':'btw', '4-2':'before','4-3':'ok','4-5':'ok',  '4-6':'before',
+  '5-1':'before','5-2':'before','5-3':'before','5-4':'before','5-6':'before',
+  '6-1':'ok',  '6-2':'ok',  '6-3':'ok',  '6-4':'after','6-5':'after',
+};
+
+export const CANOE = {
+  hema: { label: 'Hema (South Landing)', direction: 'north', opensAt: '13:30', closesAt: '17:00' },
+  akau: { label: 'Akau (North Landing)', direction: 'south', opensAt: '14:00', closesAt: '17:00' },
+};
+
+export interface ShowTime {
+  time: string;
+  crowd_density: number;
+}
+
+export const SHOWS: Record<string, Record<string, ShowTime[]>> = {
+  samoa: {
+    'Tree of Life': [
+      { time: '12:30', crowd_density: 0.88 },
+      { time: '14:00', crowd_density: 0.52 },
+      { time: '15:00', crowd_density: 0.45 },
+      { time: '16:30', crowd_density: 0.38 },
+    ],
+    'Traditional Cooking': [
+      { time: '13:30', crowd_density: 0.72 },
+      { time: '14:30', crowd_density: 0.48 },
+    ],
+    'Traditional Food Tasting': [
+      { time: '15:30', crowd_density: 0.42 },
+    ],
+    'Tree of Life & Fire Knife': [
+      { time: '15:30', crowd_density: 0.58 },
+      { time: '16:00', crowd_density: 0.50 },
+    ],
+  },
+  aotearoa: {
+    'Te Whare Tapere': [
+      { time: '12:30', crowd_density: 0.65 },
+      { time: '17:00', crowd_density: 0.32 },
+    ],
+    'Toi Whakaari Māori': [
+      { time: '14:00', crowd_density: 0.50 },
+      { time: '15:00', crowd_density: 0.46 },
+      { time: '16:00', crowd_density: 0.40 },
+    ],
+    'Mau Rākau (Māori Weaponry)': [
+      { time: '14:30', crowd_density: 0.55 },
+      { time: '15:30', crowd_density: 0.44 },
+    ],
+  },
+  fiji: {
+    'Derua Instrument Activity': [
+      { time: '12:30', crowd_density: 0.70 },
+      { time: '17:00', crowd_density: 0.35 },
+    ],
+    'Canoe & Navigation Stories': [
+      { time: '13:30', crowd_density: 0.68 },
+      { time: '16:30', crowd_density: 0.40 },
+    ],
+    'Migration through Chants & Dance': [
+      { time: '14:00', crowd_density: 0.58 },
+      { time: '15:00', crowd_density: 0.50 },
+      { time: '16:00', crowd_density: 0.45 },
+    ],
+    'Derua Presentation': [
+      { time: '14:30', crowd_density: 0.42 },
+      { time: '15:30', crowd_density: 0.40 },
+    ],
+  },
+  hawaii: {
+    "Kūpa'a Hawai'i: Stories of Aloha": [
+      { time: '13:30', crowd_density: 0.75 },
+      { time: '14:30', crowd_density: 0.52 },
+      { time: '15:30', crowd_density: 0.46 },
+      { time: '16:30', crowd_density: 0.38 },
+      { time: '17:00', crowd_density: 0.32 },
+    ],
+  },
+  tahiti: {
+    'Rhythms of the Islands': [
+      { time: '12:30', crowd_density: 0.62 },
+      { time: '13:30', crowd_density: 0.70 },
+      { time: '16:30', crowd_density: 0.36 },
+    ],
+    'Tahiti Dance': [
+      { time: '14:00', crowd_density: 0.48 },
+      { time: '15:00', crowd_density: 0.44 },
+    ],
+    'Tahitian Wedding Ceremony': [
+      { time: '14:30', crowd_density: 0.56 },
+      { time: '15:30', crowd_density: 0.50 },
+    ],
+    'Intro to French Polynesia': [
+      { time: '14:30', crowd_density: 0.40 },
+    ],
+  },
+  tonga: {
+    'Cultural Core Values': [
+      { time: '12:30', crowd_density: 0.78 },
+    ],
+    'Cultural Core Values & the Nafa': [
+      { time: '14:00', crowd_density: 0.60 },
+      { time: '15:00', crowd_density: 0.52 },
+      { time: '16:00', crowd_density: 0.46 },
+      { time: '16:30', crowd_density: 0.40 },
+    ],
+  },
+};
+
+export const SPECIAL_EVENTS = {
+  huki: {
+    title: 'Huki — A Canoe Celebration',
+    time: '12:40', endTime: '13:00',
+    desc: "Head to the lagoon — this canoe-side show only happens once a day. Don't miss it!",
+  },
+};
+
+export const CROWD_FLAGS: Record<string, { flag: string; note: string }> = {
+  'Tree of Life & Fire Knife':        { flag: 'busy_early',   note: 'Most watched show of the day — arrive 10+ mins early. Pre-show starts 10 mins before!' },
+  'Tree of Life':                     { flag: 'preshow',      note: 'Pre-show starts 10 mins before — arrive early!' },
+  'Traditional Cooking':              { flag: 'preshow',      note: 'Pre-show starts 10 mins before!' },
+  'Traditional Food Tasting':         { flag: 'preshow',      note: 'Pre-show starts 10 mins before!' },
+  'Tahitian Wedding Ceremony':        { flag: 'indoor_small', note: 'Small indoor venue — arrive 5-10 mins early' },
+  'Migration through Chants & Dance': { flag: 'early',        note: 'Popular show — arrive a few mins early' },
+  'Cultural Core Values & the Nafa':  { flag: 'early',        note: 'Popular show — large outdoor venue' },
+  'Derua Presentation':               { flag: 'gem',          note: '💎 Hidden gem — worth seeking out' },
+  'Tahiti Dance':                     { flag: 'gem',          note: '💎 Local favorite — most guests miss this one' },
+};
+
+export const INTEREST_SHOWS: Record<string, string[]> = {
+  watch_performances: ['Toi Whakaari Māori','Rhythms of the Islands','Tahitian Wedding Ceremony',"Kūpa'a Hawai'i: Stories of Aloha",'Cultural Core Values & the Nafa','Tree of Life & Fire Knife'],
+  hands_on:          ['Derua Presentation','Traditional Cooking','Traditional Food Tasting','Mau Rākau (Māori Weaponry)'],
+  learn_history:     ['Toi Whakaari Māori','Intro to French Polynesia','Te Whare Tapere','Cultural Core Values'],
+  food:              ['Traditional Cooking','Traditional Food Tasting','Derua Presentation'],
+};
+
+export const GROUP_VILLAGE_PRIORITY: Record<string, string[]> = {
+  family_kids:  ['samoa','hawaii','fiji','tonga','aotearoa','tahiti'],
+  family_teens: ['samoa','aotearoa','fiji','tonga','hawaii','tahiti'],
+  couple:       ['tahiti','aotearoa','tonga','fiji','hawaii','samoa'],
+  friends:      ['fiji','samoa','tahiti','aotearoa','tonga','hawaii'],
+  solo:         ['samoa','tahiti','aotearoa','fiji','tonga','hawaii'],
+};
+
+export const INTEREST_VILLAGE_BOOST: Record<string, string[]> = {
+  watch_performances: ['tahiti','tonga','hawaii'],
+  hands_on:           ['fiji','samoa','aotearoa'],
+  learn_history:      ['aotearoa','fiji','tonga'],
+  food:               ['samoa','fiji','hawaii'],
+  dancing:            ['tahiti','hawaii','tonga'],
+  photography:        ['samoa','fiji','tahiti'],
+  wow_factor:         ['samoa','fiji'],
+  crafts:             ['aotearoa','tonga','fiji'],
+};
+
+export interface Ticket {
+  id: string;
+  name: string;
+  desc: string;
+  hasDinner: boolean;
+  hasShow: boolean;
+  badge: string | null;
+  divider?: boolean;
+  dinnerTitle?: string;
+  dinnerDesc?: string;
+}
+
+export const TICKETS: Record<string, Ticket> = {
+  islands: {
+    id: 'islands', name: 'Islands of Polynesia',
+    desc: 'Self-guided tour through all 6 island villages',
+    hasDinner: false, hasShow: false, badge: null,
+  },
+  'islands-ha': {
+    id: 'islands-ha', name: 'Islands of Polynesia + Hā Show',
+    desc: 'Self-guided villages + Hā: Breath of Life evening show',
+    hasDinner: false, hasShow: true, badge: 'show',
+  },
+  gateway: {
+    id: 'gateway', name: 'Gateway Buffet',
+    desc: 'Self-guided villages + island buffet dinner + Hā Silver seating',
+    hasDinner: true, hasShow: true, badge: 'popular',
+    dinnerTitle: 'Gateway Buffet',
+    dinnerDesc: 'Gateway Buffet opens at 5:30 PM and runs until 7:30 PM — head over when you\'re ready.',
+  },
+  'self-alii': {
+    id: 'self-alii', name: "Self-Guided Ali'i Lū'au",
+    desc: "Declined guided tour — Ali'i Lu'au dinner + Hā Gold seating",
+    hasDinner: true, hasShow: true, badge: 'self', divider: true,
+    dinnerTitle: "Ali'i Lu'au",
+    dinnerDesc: "The Ali'i Lu'au venue opens at 5:30 PM — get settled in. The show officially starts at 5:30 PM.",
+  },
+};
+
+export const VILLAGE_ACTIVITIES: Record<string, {
+  id: string;
+  name: string;
+  desc: string;
+  tags: string[];
+  energyMin: 'low' | 'medium' | 'high';
+  ageMin: number;
+}[]> = {
+  samoa: [
+    {
+      id: 'samoa-fire',
+      name: 'Fire Knife Twirling',
+      desc: "Try the legend yourself — PCC's most iconic skill.",
+      tags: ['hands_on', 'wow_factor', 'photography'],
+      energyMin: 'medium',
+      ageMin: 8,
+    },
+    {
+      id: 'samoa-fire-sticks',
+      name: 'Start a Fire with Two Sticks',
+      desc: 'Ancient Samoan survival skill — can you make fire?',
+      tags: ['hands_on', 'learn_history'],
+      energyMin: 'medium',
+      ageMin: 5,
+    },
+    {
+      id: 'samoa-weave',
+      name: 'Weave a Fish from Coconut Leaves',
+      desc: 'Take home a handmade souvenir woven in the village.',
+      tags: ['crafts', 'hands_on'],
+      energyMin: 'low',
+      ageMin: 4,
+    },
+  ],
+  hawaii: [
+    {
+      id: 'hawaii-games',
+      name: 'Ancient Hawaiian Games',
+      desc: 'Play the same games Hawaiian chiefs played centuries ago.',
+      tags: ['hands_on', 'learn_history'],
+      energyMin: 'low',
+      ageMin: 4,
+    },
+    {
+      id: 'hawaii-hula',
+      name: 'Hula Lesson',
+      desc: 'Learn the basics of hula from a real Hawaiian dancer.',
+      tags: ['dancing', 'hands_on'],
+      energyMin: 'low',
+      ageMin: 4,
+    },
+    {
+      id: 'hawaii-fishing',
+      name: 'Fish Net Casting',
+      desc: 'Learn the ancient art of fishing without a rod.',
+      tags: ['hands_on', 'learn_history'],
+      energyMin: 'medium',
+      ageMin: 6,
+    },
+    {
+      id: 'hawaii-poi',
+      name: 'Sample Poi',
+      desc: "Taste freshly prepared poi — Hawaii's most traditional food.",
+      tags: ['food'],
+      energyMin: 'low',
+      ageMin: 2,
+    },
+  ],
+  aotearoa: [
+    {
+      id: 'aotearoa-titi',
+      name: 'Titi Tōrea Stick Game',
+      desc: 'Ancient Māori coordination game — harder than it looks.',
+      tags: ['hands_on', 'learn_history'],
+      energyMin: 'medium',
+      ageMin: 6,
+    },
+    {
+      id: 'aotearoa-poi',
+      name: 'Poi Ball Spinning',
+      desc: 'Swing traditional Māori poi balls — a test of rhythm.',
+      tags: ['hands_on', 'dancing'],
+      energyMin: 'medium',
+      ageMin: 5,
+    },
+    {
+      id: 'aotearoa-waka',
+      name: 'Waka Canoe History',
+      desc: 'How Māori navigated the Pacific in traditional waka.',
+      tags: ['learn_history'],
+      energyMin: 'low',
+      ageMin: 4,
+    },
+  ],
+  fiji: [
+    {
+      id: 'fiji-tattoo',
+      name: 'Get a Traditional Tattoo',
+      desc: 'A temporary Fijian tattoo — washes off, looks great.',
+      tags: ['hands_on', 'photography', 'wow_factor'],
+      energyMin: 'low',
+      ageMin: 5,
+    },
+    {
+      id: 'fiji-painting',
+      name: 'Traditional Painting',
+      desc: 'Create your own Fijian art piece to take home.',
+      tags: ['crafts', 'hands_on'],
+      energyMin: 'low',
+      ageMin: 4,
+    },
+    {
+      id: 'fiji-camakau',
+      name: 'See the Camakau',
+      desc: "The same canoe type in Disney's Moana — right here.",
+      tags: ['learn_history', 'photography', 'wow_factor'],
+      energyMin: 'low',
+      ageMin: 2,
+    },
+  ],
+  tonga: [
+    {
+      id: 'tonga-canoe',
+      name: 'Paddle a Canoe',
+      desc: 'Native-style outrigger canoe like ancient islanders used.',
+      tags: ['hands_on', 'learn_history'],
+      energyMin: 'medium',
+      ageMin: 6,
+    },
+    {
+      id: 'tonga-windmill',
+      name: 'Make a Windmill',
+      desc: 'Traditional Tongan craft — take your creation home.',
+      tags: ['crafts', 'hands_on'],
+      energyMin: 'low',
+      ageMin: 4,
+    },
+    {
+      id: 'tonga-juggling',
+      name: 'Juggling',
+      desc: 'Traditional Tongan juggling — a crowd favorite.',
+      tags: ['hands_on', 'wow_factor'],
+      energyMin: 'medium',
+      ageMin: 5,
+    },
+  ],
+  tahiti: [
+    {
+      id: 'tahiti-bread',
+      name: 'Coconut Bread Tasting',
+      desc: 'Melt-in-your-mouth coconut bread made fresh daily.',
+      tags: ['food'],
+      energyMin: 'low',
+      ageMin: 2,
+    },
+    {
+      id: 'tahiti-dance',
+      name: 'Learn Tahitian Dance',
+      desc: 'Ori Tahiti — they will get you moving too.',
+      tags: ['dancing', 'hands_on', 'wow_factor'],
+      energyMin: 'medium',
+      ageMin: 4,
+    },
+    {
+      id: 'tahiti-spear',
+      name: 'Spear Throwing',
+      desc: 'Test your aim with traditional Tahitian spears.',
+      tags: ['hands_on', 'wow_factor'],
+      energyMin: 'high',
+      ageMin: 7,
+    },
+    {
+      id: 'tahiti-fishing',
+      name: 'Pole Fishing',
+      desc: 'Try traditional Tahitian pole fishing from the dock.',
+      tags: ['hands_on', 'food'],
+      energyMin: 'low',
+      ageMin: 5,
+    },
+    {
+      id: 'tahiti-tattoo',
+      name: 'Get a Tahitian Tattoo',
+      desc: 'Beautiful traditional design — temporary, washes off.',
+      tags: ['hands_on', 'photography', 'wow_factor'],
+      energyMin: 'low',
+      ageMin: 5,
+    },
+  ],
+};
+
+export const BUSY_DAYS = new Set([1, 4, 5]);
+
+export const TIMING = {
+  SHOW_DURATION_MIN:    20,
+  WALK_BUFFER_MIN:       5,
+  CANOE_DURATION_MIN:   15,
+  MAX_SCHEDULE_GAP_MIN: 120,
+  DINNER_CUTOFF:        '16:00',
+  HA_SEATING:           '19:30',
+};
+
+export const ARRIVAL_TIME_OPTIONS = [
+  '12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM',
+  '3:00 PM','3:30 PM','4:00 PM','4:30 PM','5:00 PM',
+];
+
+export const ARRIVAL_TIME_MAP: Record<string, string> = {
+  '12:30 PM':'12:30','1:00 PM':'13:00','1:30 PM':'13:30',
+  '2:00 PM':'14:00','2:30 PM':'14:30','3:00 PM':'15:00',
+  '3:30 PM':'15:30','4:00 PM':'16:00','4:30 PM':'16:30',
+  '5:00 PM':'17:00',
+};
+
+export const QUESTIONS = [
+  {
+    id: 'group', label: 'Your group', title: "Who's joining you today?",
+    sub: "We'll tailor your day around your crew.", type: 'single' as const,
+    options: [
+      { value: 'family_kids',  icon: '👨‍👩‍👧‍👦', label: 'Family',  sub: 'With young kids' },
+      { value: 'family_teens', icon: '👨‍👩‍👦', label: 'Family',  sub: 'With teens' },
+      { value: 'couple',       icon: '❤️',    label: 'Couple',  sub: 'Just the two of us' },
+      { value: 'friends',      icon: '🤙',    label: 'Friends', sub: 'Group of adults' },
+      { value: 'solo',         icon: '🙋',    label: 'Solo',    sub: 'Just me' },
+    ],
+  },
+  {
+    id: 'energy',
+    label: 'Your energy',
+    title: 'How active are you feeling today?',
+    sub: 'This helps us pick the right activities for you.',
+    type: 'single' as const,
+    options: [
+      { value: 'high',   icon: '🔥', label: "Let's do everything", sub: 'Hands-on, active, all in' },
+      { value: 'medium', icon: '😊', label: 'A good mix',           sub: 'Some doing, some watching' },
+      { value: 'low',    icon: '😌', label: 'Mostly relaxing',      sub: 'Watching, tasting, exploring' },
+    ],
+  },
+  {
+    id: 'vibe', label: 'Your style', title: 'How do you like to experience a new culture?',
+    sub: 'Pick everything that sounds like you.', type: 'multi' as const,
+    options: [
+      { value: 'watch_performances', icon: '🎭', label: 'Watch performances', sub: 'Sit back and enjoy' },
+      { value: 'hands_on',           icon: '🤲', label: 'Get hands-on',       sub: 'Try it yourself' },
+      { value: 'learn_history',      icon: '📖', label: 'Learn the stories',  sub: 'History & meaning' },
+      { value: 'food',               icon: '🍖', label: 'Eat everything',     sub: 'Food first' },
+    ],
+  },
+  {
+    id: 'connection', label: 'Your roots', title: 'Any personal connection to these cultures?',
+    sub: "We'll make sure you don't miss your heritage.", type: 'multi' as const,
+    options: [
+      { value: 'samoa',    icon: '🌊', label: 'Samoa',    sub: '' },
+      { value: 'hawaii',   icon: '🌺', label: "Hawai'i",  sub: '' },
+      { value: 'tonga',    icon: '👑', label: 'Tonga',    sub: '' },
+      { value: 'fiji',     icon: '🔥', label: 'Fiji',     sub: '' },
+      { value: 'tahiti',   icon: '🌸', label: 'Tahiti',   sub: '' },
+      { value: 'aotearoa', icon: '🍃', label: 'Aotearoa', sub: '' },
+      { value: 'none',     icon: '🌏', label: 'No connection', sub: 'All new to me' },
+    ],
+  },
+  {
+    id: 'arrival', label: 'Your arrival', title: 'What time are you arriving?',
+    sub: "We'll catch you the best shows at the right times.", type: 'select' as const,
+    options: ARRIVAL_TIME_OPTIONS,
+  },
+  {
+    id: 'ticket', label: 'Your ticket', title: 'What ticket do you have?',
+    sub: "This tells us what's included in your day.", type: 'ticket' as const,
+    options: [],
+  },
+];

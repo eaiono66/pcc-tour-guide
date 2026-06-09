@@ -119,19 +119,14 @@ function getBestShow(
       const interestMatch  = preferredShows.includes(name) ? 10 : 0;
       const crowdScore     = 8 * (1 - crowd_density);
       const proximityScore = getWalkTime(fromVillage, village) <= ADJACENCY_WALK_MIN ? 4 : 0;
-      // Strongly prefer top-of-hour slots (XX:00) over half-hour slots
-      const topOfHourBonus = timeMin % 60 === 0 ? 6 : 0;
-      const jitter = Math.random() * 1.5;
-      candidates.push({
-        name, time, timeMin,
-        score: interestMatch + crowdScore + proximityScore + topOfHourBonus + jitter,
-      });
+      const jitter = Math.random() * 2;
+      candidates.push({ name, time, timeMin, score: interestMatch + crowdScore + proximityScore + jitter });
     }
   }
   if (!candidates.length) return null;
 
   candidates.sort((a, b) => b.score - a.score || a.timeMin - b.timeMin);
-  return weightedRandomSelect(candidates.slice(0, 3));
+  return weightedRandomSelect(candidates.slice(0, 4));
 }
 
 function getPreferredShows(interests: string[]): string[] {
@@ -223,9 +218,6 @@ function buildSmartRoute(
   let lastVillage: string | null = null;
   let canoeUsed = false;
 
-  // Tracks which stop index is the last show — used to suppress activities after it
-  let lastShowIndex = -1;
-
   function addStop(stop: ScheduleStop | null) {
     if (!stop) return;
     stops.push(stop);
@@ -234,7 +226,17 @@ function buildSmartRoute(
     if (stop.type === 'canoe') canoeUsed = true;
     if (stop.type === 'show') {
       lastVillage = stop.village.toLowerCase();
-      lastShowIndex = stops.length - 1;
+      let actMin = stop.timeMin + TIMING.SHOW_DURATION_MIN;
+      for (const actName of (stop.activities ?? [])) {
+        stops.push({
+          time: toDisplayTime(actMin), timeMin: actMin,
+          type: 'activity', village: stop.village,
+          title: actName, desc: '', flags: [],
+        });
+        actMin += 15;
+      }
+      // curMin is NOT advanced by activities — activities happen during village dwell time
+      // curMin already = stop.timeMin + SHOW_DURATION_MIN from the line above
     }
   }
 
@@ -253,89 +255,81 @@ function buildSmartRoute(
     curMin = hukiEndMin;
   }
 
-  // Phase 2: Build 3 show slots targeting 2:00, 3:00, 4:00 PM
-  // Pick the best available village for each target hour from the priority list.
-  const targetHours = [
-    toMinutes('14:00'),
-    toMinutes('15:00'),
-    toMinutes('16:00'),
-  ].filter(t => t >= curMin && t <= lastShowCutoff);
+  // TODO 4: Track the guest's traversal direction off arrival time — fixes the 12:30 PM Samoa bottleneck
+  const southFirst  = arrMin < toMinutes('13:00');
+  const trackOrder  = southFirst
+    ? ['samoa', 'tonga', 'fiji', 'aotearoa', 'hawaii', 'tahiti']   // South-First: Samoa → Tahiti
+    : ['tahiti', 'hawaii', 'aotearoa', 'fiji', 'tonga', 'samoa'];  // North-First: Tahiti → Samoa
+  const orderedPool = trackOrder.filter(v => priority.includes(v));
 
-  // All villages in priority order — no village is excluded or forced
-  const allVillages = priority.filter(v => !usedVillages.has(v));
+  const southVillages  = orderedPool.filter(v => ['samoa','tonga'].includes(v));
+  const northVillages  = orderedPool.filter(v => ['tahiti','hawaii'].includes(v));
+  const middleVillages = orderedPool.filter(v => ['aotearoa','fiji'].includes(v));
+  const goingNorth     = northVillages.length > 0;
 
-  // For each target hour, find the best village+show combination
-  for (const targetMin of targetHours) {
-    let bestVillage: string | null = null;
-    let bestShow: { name: string; time: string; timeMin: number } | null = null;
-    let bestScore = -1;
-
-    for (const v of allVillages) {
+  function visitVillages(villages: string[]) {
+    for (const v of villages) {
       if (usedVillages.has(v)) continue;
       const from = lastVillage ?? 'entrance';
-      // afterMin is the walk time from current position to this village
-      const afterMin = Math.max(curMin + getWalkTime(from, v), targetMin - 10);
-      if (!isTransitionValid(lastVillage, v, canoeUsed, false)) continue;
-
-      const show = getBestShow(v, afterMin, preferredShows, lastShowCutoff, from);
-      if (!show) continue;
-
-      // Score: prefer shows closer to the target hour
-      const timeDiff = Math.abs(show.timeMin - targetMin);
-      const score = 100 - timeDiff + (preferredShows.includes(show.name) ? 20 : 0);
-      if (score > bestScore) {
-        bestScore = score;
-        bestVillage = v;
-        bestShow = show;
-      }
-    }
-
-    if (bestVillage && bestShow) {
-      const isNorthernVillage = ['tahiti', 'hawaii', 'aotearoa'].includes(bestVillage);
-      const currentlyInNorth  = ['tahiti', 'hawaii', 'aotearoa'].includes(lastVillage ?? '');
-
-      // Insert northbound canoe if heading into northern villages for the first time
-      if (!canoeUsed && isNorthernVillage && !currentlyInNorth) {
-        const canoeMin = getNextCanoeTime(curMin, 'north');
-        if (canoeMin && canoeMin + TIMING.CANOE_DURATION_MIN <= bestShow.timeMin) {
-          addStop(buildCanoeStop(canoeMin, 'north'));
-        }
-      }
-
-      addStop(buildShowStop(
-        bestVillage, bestShow.name, bestShow.time,
-        isBusy, usedVillages, interests, energy, group
-      ));
+      const show = getBestShow(v, curMin + getWalkTime(from, v), preferredShows, lastShowCutoff, from);
+      if (!show || !isTransitionValid(lastVillage, v, canoeUsed, false)) continue;
+      addStop(buildShowStop(v, show.name, show.time, isBusy, usedVillages, interests, energy, group));
     }
   }
 
-  // Phase 3: Insert activities ONLY between Huki end and the 2 PM show
-  // Find the 2 PM show stop and insert activities before it at the same village
-  const firstShowStop = stops.find(s => s.type === 'show');
-  if (firstShowStop && hukiEndMin < firstShowStop.timeMin) {
-    const gapStart = hukiEndMin;
-    const gapEnd = firstShowStop.timeMin - 5; // 5 min buffer before show
-    const actVillage = firstShowStop.village.toLowerCase();
-    const acts = assignActivities(actVillage, interests, energy, group);
-
-    let actMin = gapStart;
-    const activityInserts: ScheduleStop[] = [];
-    for (const actName of acts) {
-      if (actMin + 15 > gapEnd) break;
-      activityInserts.push({
-        time: toDisplayTime(actMin), timeMin: actMin,
-        type: 'activity', village: firstShowStop.village,
-        title: actName, desc: '', flags: [],
-      });
-      actMin += 15;
+  function canoeNorth() {
+    if (goingNorth && !canoeUsed && curMin <= toMinutes('16:30')) {
+      const canoeMin = getNextCanoeTime(curMin, 'north');
+      if (canoeMin) addStop(buildCanoeStop(canoeMin, 'north'));
     }
-
-    // Insert activities into stops array right before the first show
-    const firstShowIdx = stops.findIndex(s => s.type === 'show');
-    stops.splice(firstShowIdx, 0, ...activityInserts);
   }
 
-  void lastShowIndex;
+  function visitRemainingMiddle() {
+    for (const v of middleVillages) {
+      if (usedVillages.has(v)) continue;
+      if (curMin >= toMinutes('15:30')) break;
+      visitVillages([v]);
+    }
+  }
+
+  if (southFirst) {
+    // South-First track: clear the southern villages (minus Samoa) before heading north
+    visitVillages(southVillages.filter(v => v !== 'samoa'));
+    canoeNorth();
+    visitVillages([...northVillages, ...middleVillages.filter(v => !usedVillages.has(v))]);
+    visitRemainingMiddle();
+  } else {
+    // North-First track: head toward Tahiti first, then work back south toward Samoa
+    canoeNorth();
+    visitVillages([...northVillages, ...middleVillages.filter(v => !usedVillages.has(v))]);
+    visitRemainingMiddle();
+    visitVillages(southVillages.filter(v => v !== 'samoa'));
+  }
+
+  // Phase 6: 4PM Samoa Fire Knife
+  const fireKnifeMin     = toMinutes('16:00');
+  const preShowBufferMin = toMinutes('15:40');
+
+  const walkToSamoa = getWalkTime(lastVillage ?? 'entrance', 'samoa');
+  if (!usedVillages.has('samoa') && curMin + walkToSamoa <= preShowBufferMin && fireKnifeMin <= lastShowCutoff) {
+    if (lastVillage && ['hawaii','tahiti'].includes(lastVillage) && !canoeUsed) {
+      const canoeMin = getNextCanoeTime(curMin, 'south');
+      if (canoeMin && canoeMin + TIMING.CANOE_DURATION_MIN <= preShowBufferMin) {
+        addStop(buildCanoeStop(canoeMin, 'south'));
+        lastVillage = null;
+      }
+    }
+    if (isTransitionValid(lastVillage, 'samoa', canoeUsed, false)) {
+      addStop(buildShowStop('samoa', 'Tree of Life & Fire Knife', '16:00', isBusy, usedVillages, interests, energy, group, true));
+    }
+  } else if (!usedVillages.has('samoa')) {
+    const from = lastVillage ?? 'entrance';
+    const samoaShow = getBestShow('samoa', curMin + getWalkTime(from, 'samoa'), preferredShows, lastShowCutoff, from);
+    if (samoaShow && isTransitionValid(lastVillage, 'samoa', canoeUsed, false)) {
+      addStop(buildShowStop('samoa', samoaShow.name, samoaShow.time, isBusy, usedVillages, interests, energy, group));
+    }
+  }
+
   return stops.filter(Boolean) as ScheduleStop[];
 }
 
@@ -357,6 +351,16 @@ function buildLateRoute(
     if (!stop) continue;
     stops.push(stop);
     curMin = stop.timeMin + TIMING.SHOW_DURATION_MIN;
+    let actMin = curMin;
+    for (const actName of (stop.activities ?? [])) {
+      stops.push({
+        time: toDisplayTime(actMin), timeMin: actMin,
+        type: 'activity', village: stop.village,
+        title: actName, desc: '', flags: [],
+      });
+      actMin += 15;
+    }
+    // curMin stays at showTime + SHOW_DURATION_MIN — not pushed forward by activities
     lastVillage = v;
   }
   return stops;
@@ -403,7 +407,7 @@ export function buildSchedule(params: {
 
   if (ticketData.hasDinner) {
     stops.push({
-      time: '4:30 PM', timeMin: toMinutes('16:30'),
+      time: '5:30 PM', timeMin: toMinutes('17:30'),
       type: 'dinner', village: 'Dining',
       title: ticketData.dinnerTitle!, desc: ticketData.dinnerDesc!, flags: [],
     });
@@ -425,7 +429,7 @@ export function buildSchedule(params: {
       time: '7:30 PM', timeMin: toMinutes('19:30'),
       type: 'ha_show', village: 'Hā Theater',
       title: 'Hā: Breath of Life',
-      desc: 'All seats are reserved — check your ticket for your seat and portal number. Pacific Theater seating opens at 7:00 PM, show starts promptly at 7:30 PM.',
+      desc: 'Seating opens at 7:00 PM — head to the Hā Theater early for the best seats. Show starts at 7:30 PM.',
       flags: ['dont_miss'],
     });
   }

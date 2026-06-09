@@ -291,11 +291,11 @@ function buildSmartRoute(
     }
 
     if (bestVillage && bestShow) {
-      const isNorthernVillage = ['tahiti', 'hawaii', 'aotearoa'].includes(bestVillage);
-      const currentlyInNorth  = ['tahiti', 'hawaii', 'aotearoa'].includes(lastVillage ?? '');
-
-      // Insert northbound canoe if heading into northern villages for the first time
-      if (!canoeUsed && isNorthernVillage && !currentlyInNorth) {
+      // Insert canoe if needed to reach northern villages
+      const needsCanoe = !canoeUsed &&
+        ['tahiti', 'hawaii', 'aotearoa'].includes(bestVillage) &&
+        ['samoa', 'tonga'].includes(lastVillage ?? '');
+      if (needsCanoe) {
         const canoeMin = getNextCanoeTime(curMin, 'north');
         if (canoeMin && canoeMin + TIMING.CANOE_DURATION_MIN <= bestShow.timeMin) {
           addStop(buildCanoeStop(canoeMin, 'north'));
@@ -403,7 +403,7 @@ export function buildSchedule(params: {
 
   if (ticketData.hasDinner) {
     stops.push({
-      time: '4:30 PM', timeMin: toMinutes('16:30'),
+      time: '5:30 PM', timeMin: toMinutes('17:30'),
       type: 'dinner', village: 'Dining',
       title: ticketData.dinnerTitle!, desc: ticketData.dinnerDesc!, flags: [],
     });
@@ -425,7 +425,7 @@ export function buildSchedule(params: {
       time: '7:30 PM', timeMin: toMinutes('19:30'),
       type: 'ha_show', village: 'Hā Theater',
       title: 'Hā: Breath of Life',
-      desc: 'All seats are reserved — check your ticket for your seat and portal number. Pacific Theater seating opens at 7:00 PM, show starts promptly at 7:30 PM.',
+      desc: 'Seating opens at 7:00 PM — head to the Hā Theater early for the best seats. Show starts at 7:30 PM.',
       flags: ['dont_miss'],
     });
   }

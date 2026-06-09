@@ -1,0 +1,165 @@
+TASK: Fix 3 bugs in the schedule engine — routing.ts and data.ts
+
+Files to edit: src/lib/routing.ts and src/lib/data.ts ONLY.
+Do NOT touch _layout.tsx. Do NOT restructure any files.
+
+================================================================================
+BUG 1 — Same schedule every time (no variation)
+================================================================================
+
+Root cause: getBestShow only slices the top 2 candidates before weighted random
+selection. Same inputs = same 2 candidates = barely any variety.
+
+STEP 1 — In src/lib/routing.ts, find this line inside getBestShow:
+
+  candidates.push({ name, time, timeMin, score: interestMatch + crowdScore + proximityScore });
+
+Replace with:
+
+  const jitter = Math.random() * 2;
+  candidates.push({ name, time, timeMin, score: interestMatch + crowdScore + proximityScore + jitter });
+
+STEP 2 — In src/lib/routing.ts, find this block inside getBestShow:
+
+  candidates.sort((a, b) => b.score - a.score || a.timeMin - b.timeMin);
+  return weightedRandomSelect(candidates.slice(0, 2));
+
+Replace with:
+
+  candidates.sort((a, b) => b.score - a.score || a.timeMin - b.timeMin);
+  return weightedRandomSelect(candidates.slice(0, 4));
+
+================================================================================
+BUG 2 — Huki showing at 12:40 PM instead of 1:00 PM
+================================================================================
+
+In src/lib/data.ts, find:
+
+  export const SPECIAL_EVENTS = {
+    huki: {
+      title: 'Huki — A Canoe Celebration',
+      time: '12:40', endTime: '13:00',
+      desc: "Head to the lagoon — this canoe-side show only happens once a day. Don't miss it!",
+    },
+  };
+
+Replace with:
+
+  export const SPECIAL_EVENTS = {
+    huki: {
+      title: 'Huki — A Canoe Celebration',
+      time: '13:00', endTime: '13:20',
+      desc: "Head to the lagoon — this canoe-side show only happens once a day. Don't miss it!",
+    },
+  };
+
+================================================================================
+BUG 3 — Massive gap after Huki, no shows until 4:30 PM
+================================================================================
+
+--- Fix A: Huki block in routing.ts ---
+
+In src/lib/routing.ts, find the entire Phase 1 Huki block:
+
+  // Phase 1: Huki
+  const hukiMin = toMinutes(SPECIAL_EVENTS.huki.time);
+  if (arrMin <= hukiMin) {
+    addStop({
+      time: timeToDisplay(SPECIAL_EVENTS.huki.time), timeMin: hukiMin,
+      type: 'huki', village: 'All Villages',
+      title: SPECIAL_EVENTS.huki.title, desc: SPECIAL_EVENTS.huki.desc,
+      flags: ['dont_miss'],
+    });
+    curMin = toMinutes(SPECIAL_EVENTS.huki.endTime);
+  }
+
+Replace with:
+
+  // Phase 1: Huki
+  const hukiMin = toMinutes(SPECIAL_EVENTS.huki.time);
+  const hukiEndMin = toMinutes(SPECIAL_EVENTS.huki.endTime);
+  if (arrMin <= hukiMin) {
+    addStop({
+      time: timeToDisplay(SPECIAL_EVENTS.huki.time), timeMin: hukiMin,
+      type: 'huki', village: 'All Villages',
+      title: SPECIAL_EVENTS.huki.title, desc: SPECIAL_EVENTS.huki.desc,
+      flags: ['dont_miss'],
+    });
+    curMin = hukiEndMin;
+  } else if (arrMin > hukiMin && arrMin < hukiEndMin) {
+    curMin = hukiEndMin;
+  }
+
+--- Fix B: No shows at or after 5:00 PM ---
+
+In src/lib/routing.ts, inside buildSchedule, find:
+
+  const lastShowCutoff = ticketData.hasDinner
+    ? toMinutes(TIMING.DINNER_CUTOFF)
+    : toMinutes('17:00');
+
+Replace with:
+
+  const lastShowCutoff = ticketData.hasDinner
+    ? toMinutes(TIMING.DINNER_CUTOFF)
+    : toMinutes('16:45');
+
+--- Fix C: Remove 5:00 PM show slots from data.ts ---
+
+In src/lib/data.ts, in the SHOWS object, make these 3 removals:
+
+REMOVAL 1 — In aotearoa > Te Whare Tapere, delete the 17:00 entry:
+  Find:
+    'Te Whare Tapere': [
+      { time: '12:30', crowd_density: 0.65 },
+      { time: '17:00', crowd_density: 0.32 },
+    ],
+  Replace with:
+    'Te Whare Tapere': [
+      { time: '12:30', crowd_density: 0.65 },
+    ],
+
+REMOVAL 2 — In fiji > Derua Instrument Activity, delete the 17:00 entry:
+  Find:
+    'Derua Instrument Activity': [
+      { time: '12:30', crowd_density: 0.70 },
+      { time: '17:00', crowd_density: 0.35 },
+    ],
+  Replace with:
+    'Derua Instrument Activity': [
+      { time: '12:30', crowd_density: 0.70 },
+    ],
+
+REMOVAL 3 — In hawaii > Kupa'a Hawai'i, delete the 17:00 entry:
+  Find:
+    { time: '16:30', crowd_density: 0.38 },
+    { time: '17:00', crowd_density: 0.32 },
+  Replace with:
+    { time: '16:30', crowd_density: 0.38 },
+
+================================================================================
+VERIFICATION
+================================================================================
+
+After ALL changes, run:
+  npx tsc --noEmit
+
+Zero TypeScript errors required. Do not stop until errors are zero.
+
+Then mentally verify a 12:30 PM arrival should produce:
+  1:00 PM  — Huki
+  ~1:30 PM — first village show
+  ~2:30 PM — second village show
+  ~3:30 PM — third village show
+  ~4:00 PM — fourth village / Fire Knife
+  No shows at or after 5:00 PM
+  Running again with same inputs produces a different show selection
+
+================================================================================
+RULES
+================================================================================
+- Edit src/lib/routing.ts and src/lib/data.ts ONLY
+- Do NOT touch _layout.tsx
+- Do NOT restructure any files or move anything
+- Run npx tsc --noEmit after every file change
+- Fix any TypeScript errors before moving to the next step

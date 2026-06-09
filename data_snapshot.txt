@@ -44,6 +44,7 @@ export const SHOWS: Record<string, Record<string, ShowTime[]>> = {
   aotearoa: {
     'Te Whare Tapere': [
       { time: '12:30', crowd_density: 0.65 },
+      { time: '17:00', crowd_density: 0.32 },
     ],
     'Toi Whakaari Māori': [
       { time: '14:00', crowd_density: 0.50 },
@@ -58,6 +59,7 @@ export const SHOWS: Record<string, Record<string, ShowTime[]>> = {
   fiji: {
     'Derua Instrument Activity': [
       { time: '12:30', crowd_density: 0.70 },
+      { time: '17:00', crowd_density: 0.35 },
     ],
     'Canoe & Navigation Stories': [
       { time: '13:30', crowd_density: 0.68 },
@@ -79,6 +81,7 @@ export const SHOWS: Record<string, Record<string, ShowTime[]>> = {
       { time: '14:30', crowd_density: 0.52 },
       { time: '15:30', crowd_density: 0.46 },
       { time: '16:30', crowd_density: 0.38 },
+      { time: '17:00', crowd_density: 0.32 },
     ],
   },
   tahiti: {
@@ -115,7 +118,7 @@ export const SHOWS: Record<string, Record<string, ShowTime[]>> = {
 export const SPECIAL_EVENTS = {
   huki: {
     title: 'Huki — A Canoe Celebration',
-    time: '13:00', endTime: '13:20',
+    time: '12:40', endTime: '13:00',
     desc: "Head to the lagoon — this canoe-side show only happens once a day. Don't miss it!",
   },
 };
@@ -186,7 +189,7 @@ export const TICKETS: Record<string, Ticket> = {
     desc: 'Self-guided villages + island buffet dinner + Hā Silver seating',
     hasDinner: true, hasShow: true, badge: 'popular',
     dinnerTitle: 'Gateway Buffet',
-    dinnerDesc: 'Gateway Buffet opens at 4:30 PM and runs until 6:30 PM — head over when you\'re ready.',
+    dinnerDesc: 'Gateway Buffet opens at 5:30 PM and runs until 7:30 PM — head over when you\'re ready.',
   },
   'self-alii': {
     id: 'self-alii', name: "Self-Guided Ali'i Lū'au",

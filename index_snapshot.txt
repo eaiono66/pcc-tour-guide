@@ -35,27 +35,22 @@ import {
 // ─── Image Assets (local require — zero CDN) ──────────────────────────────────
 
 const IMAGES = {
-  samoa:        require('../../assets/images/village-samoa.jpg'),
-  hawaii:       require('../../assets/images/village-hawaii.jpg'),
-  tahiti:       require('../../assets/images/village-tahiti.jpg'),
-  fiji:         require('../../assets/images/village-fiji.jpg'),
-  aotearoa:     require('../../assets/images/village-aotearoa.jpg'),
-  tonga:        require('../../assets/images/village-tonga.jpg'),
-  haShow:       require('../../assets/images/ha-show.webp'),
-  huki:         require('../../assets/images/huki.jpg'),
-  groupCouple:      require('../../assets/images/group-couple.jpg'),
-  groupFamilyKids:  require('../../assets/images/group-family-kids.jpg'),
-  groupFamilyTeens: require('../../assets/images/group-family-teens.jpg'),
-  groupFriends:     require('../../assets/images/group-friends.jpg'),
-  groupSolo:        require('../../assets/images/group-solo.jpg'),
+  samoa:    require('../../assets/images/village-samoa.jpg'),
+  hawaii:   require('../../assets/images/village-hawaii.jpg'),
+  tahiti:   require('../../assets/images/village-tahiti.jpg'),
+  fiji:     require('../../assets/images/village-fiji.jpg'),
+  aotearoa: require('../../assets/images/village-aotearoa.jpg'),
+  tonga:    require('../../assets/images/village-tonga.jpg'),
+  haShow:   require('../../assets/images/ha-show.webp'),
+  huki:     require('../../assets/images/huki.jpg'),
 };
 
 const QUESTION_PHOTOS: Record<string, any> = {
-  family_kids:  IMAGES.groupFamilyKids,
-  family_teens: IMAGES.groupFamilyTeens,
-  couple:       IMAGES.groupCouple,
-  friends:      IMAGES.groupFriends,
-  solo:         IMAGES.groupSolo,
+  family_kids:  IMAGES.samoa,
+  family_teens: IMAGES.fiji,
+  couple:       IMAGES.tahiti,
+  friends:      IMAGES.aotearoa,
+  solo:         IMAGES.tonga,
   high:         IMAGES.samoa,
   medium:       IMAGES.hawaii,
   low:          IMAGES.tahiti,
@@ -145,22 +140,10 @@ interface ScheduleJsonData {
 
 function LoadingScreen() {
   const [activeStep, setActiveStep] = useState(0);
-  const [doneSteps, setDoneSteps] = useState<number[]>([]);
-
   useEffect(() => {
-    const t = setInterval(() => {
-      setDoneSteps(d => {
-        const next = d.length;
-        if (next < LOADING_STEPS.length - 1) {
-          setActiveStep(next + 1);
-          return [...d, next];
-        }
-        return d;
-      });
-    }, 700);
+    const t = setInterval(() => setActiveStep(s => Math.min(s + 1, LOADING_STEPS.length - 1)), 900);
     return () => clearInterval(t);
   }, []);
-
   return (
     <View style={s.loadWrap}>
       <View style={s.loadIconBox}>
@@ -173,25 +156,25 @@ function LoadingScreen() {
         {LOADING_STEPS.map((step, i) => (
           <View key={i} style={[
             s.loadLine,
-            doneSteps.includes(i) && s.loadLineDone,
-            i === activeStep && !doneSteps.includes(i) && s.loadLineActive,
-            !doneSteps.includes(i) && i !== activeStep && s.loadLineWait,
+            i < activeStep && s.loadLineDone,
+            i === activeStep && s.loadLineActive,
+            i > activeStep && s.loadLineWait,
           ]}>
             <Text style={[
               s.loadLineIcon,
-              doneSteps.includes(i)  && { color: '#2D6A2D' },
-              i === activeStep && !doneSteps.includes(i) && { color: D.orange },
-              !doneSteps.includes(i) && i !== activeStep && { color: D.divider },
+              i < activeStep  && { color: '#2D6A2D' },
+              i === activeStep && { color: D.orange },
+              i > activeStep  && { color: D.divider },
             ]}>
-              {doneSteps.includes(i) ? '✓' : i === activeStep ? '◉' : '○'}
+              {i < activeStep ? '✓' : i === activeStep ? '◉' : '○'}
             </Text>
             <Text style={[
               s.loadLineText,
-              doneSteps.includes(i)  && { color: D.dark },
-              i === activeStep && !doneSteps.includes(i) && { color: D.brown, fontFamily: 'DMMonoMedium' },
-              !doneSteps.includes(i) && i !== activeStep && { color: D.light },
+              i < activeStep  && { color: D.dark },
+              i === activeStep && { color: D.brown, fontFamily: 'DMMonoMedium' },
+              i > activeStep  && { color: D.light },
             ]}>
-              {step}{i === activeStep && !doneSteps.includes(i) ? '...' : ''}
+              {step}{i === activeStep ? '...' : ''}
             </Text>
           </View>
         ))}
@@ -993,16 +976,13 @@ export default function PlannerScreen() {
       arrival: arrivalHHMM, group, interests: vibe,
       connection, ticket, isBusy, energy,
     });
-    const [gr] = await Promise.all([
-      fetchGreeting(group, vibe, connection),
-      new Promise<void>(resolve => setTimeout(resolve, 3500)),
-    ]);
+    const gr = await fetchGreeting(group, vibe, connection);
     setGreeting(gr || getDefaultGreeting());
     setSchedule(result);
     setLoading(false);
   }
 
-  async function magicStart() {
+  function magicStart() {
     const now = new Date();
     const arrivalHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -1021,14 +1001,12 @@ export default function PlannerScreen() {
       arrival: arrivalHHMM, group, interests,
       connection, ticket, isBusy, energy,
     });
-
-    const [gr] = await Promise.all([
-      fetchGreeting(group, interests, connection),
-      new Promise<void>(resolve => setTimeout(resolve, 3500)),
-    ]);
-    setGreeting(gr || getDefaultGreeting());
     setSchedule(result);
-    setLoading(false);
+
+    fetchGreeting(group, interests, connection).then(gr => {
+      setGreeting(gr || getDefaultGreeting());
+      setLoading(false);
+    });
   }
 
   function openChat() {

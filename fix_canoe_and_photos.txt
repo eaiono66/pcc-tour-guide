@@ -1,0 +1,175 @@
+TASK: Two things — fix missing canoe ride + swap in new group photos
+
+Do NOT touch _layout.tsx. Do NOT restructure any files.
+Files to edit: src/lib/routing.ts and src/app/index.tsx
+
+================================================================================
+PART 1 — COPY NEW PHOTOS INTO ASSETS
+================================================================================
+
+Run these copy commands exactly. The source files are in Downloads:
+
+  copy "C:\Users\ezraa\Downloads\NEW PICS\COUPLE.jpg" "assets\images\group-couple.jpg"
+  copy "C:\Users\ezraa\Downloads\NEW PICS\FAM W CHILDREN.jpg" "assets\images\group-family-kids.jpg"
+  copy "C:\Users\ezraa\Downloads\NEW PICS\FAMILY W TEENS.jpg" "assets\images\group-family-teens.jpg"
+  copy "C:\Users\ezraa\Downloads\NEW PICS\FRIENDS.jpg" "assets\images\group-friends.jpg"
+  copy "C:\Users\ezraa\Downloads\NEW PICS\SOLO.jpg" "assets\images\group-solo.jpg"
+
+Verify all 5 files exist in assets\images\ before proceeding.
+
+================================================================================
+PART 2 — WIRE NEW PHOTOS INTO THE GROUP QUESTION SCREEN (src/app/index.tsx)
+================================================================================
+
+Step 1 — Add the new photo requires to the IMAGES object.
+
+Find this block in index.tsx:
+
+  const IMAGES = {
+    samoa:    require('../../assets/images/village-samoa.jpg'),
+    hawaii:   require('../../assets/images/village-hawaii.jpg'),
+    tahiti:   require('../../assets/images/village-tahiti.jpg'),
+    fiji:     require('../../assets/images/village-fiji.jpg'),
+    aotearoa: require('../../assets/images/village-aotearoa.jpg'),
+    tonga:    require('../../assets/images/village-tonga.jpg'),
+    haShow:   require('../../assets/images/ha-show.webp'),
+    huki:     require('../../assets/images/huki.jpg'),
+  };
+
+Replace with:
+
+  const IMAGES = {
+    samoa:        require('../../assets/images/village-samoa.jpg'),
+    hawaii:       require('../../assets/images/village-hawaii.jpg'),
+    tahiti:       require('../../assets/images/village-tahiti.jpg'),
+    fiji:         require('../../assets/images/village-fiji.jpg'),
+    aotearoa:     require('../../assets/images/village-aotearoa.jpg'),
+    tonga:        require('../../assets/images/village-tonga.jpg'),
+    haShow:       require('../../assets/images/ha-show.webp'),
+    huki:         require('../../assets/images/huki.jpg'),
+    groupCouple:      require('../../assets/images/group-couple.jpg'),
+    groupFamilyKids:  require('../../assets/images/group-family-kids.jpg'),
+    groupFamilyTeens: require('../../assets/images/group-family-teens.jpg'),
+    groupFriends:     require('../../assets/images/group-friends.jpg'),
+    groupSolo:        require('../../assets/images/group-solo.jpg'),
+  };
+
+Step 2 — Update QUESTION_PHOTOS to use the new group images.
+
+Find this block:
+
+  const QUESTION_PHOTOS: Record<string, any> = {
+    family_kids:  IMAGES.samoa,
+    family_teens: IMAGES.fiji,
+    couple:       IMAGES.tahiti,
+    friends:      IMAGES.aotearoa,
+    solo:         IMAGES.tonga,
+    high:         IMAGES.samoa,
+    medium:       IMAGES.hawaii,
+    low:          IMAGES.tahiti,
+    samoa:        IMAGES.samoa,
+    hawaii:       IMAGES.hawaii,
+    aotearoa:     IMAGES.aotearoa,
+    fiji:         IMAGES.fiji,
+    tonga:        IMAGES.tonga,
+    tahiti:       IMAGES.tahiti,
+    none:         IMAGES.hawaii,
+  };
+
+Replace with:
+
+  const QUESTION_PHOTOS: Record<string, any> = {
+    family_kids:  IMAGES.groupFamilyKids,
+    family_teens: IMAGES.groupFamilyTeens,
+    couple:       IMAGES.groupCouple,
+    friends:      IMAGES.groupFriends,
+    solo:         IMAGES.groupSolo,
+    high:         IMAGES.samoa,
+    medium:       IMAGES.hawaii,
+    low:          IMAGES.tahiti,
+    samoa:        IMAGES.samoa,
+    hawaii:       IMAGES.hawaii,
+    aotearoa:     IMAGES.aotearoa,
+    fiji:         IMAGES.fiji,
+    tonga:        IMAGES.tonga,
+    tahiti:       IMAGES.tahiti,
+    none:         IMAGES.hawaii,
+  };
+
+================================================================================
+PART 3 — FIX MISSING CANOE RIDE (src/lib/routing.ts)
+================================================================================
+
+The canoe logic inside buildSmartRoute only fires when going from a southern
+village (samoa/tonga) to a northern village (tahiti/hawaii/aotearoa). But with
+the new slot-based engine, lastVillage may be null or a middle village when the
+northern slot comes up, so the canoe never triggers.
+
+Fix: expand the canoe trigger condition so it fires whenever we are NOT already
+in a northern village and the target village IS northern, regardless of what
+lastVillage is. Also add a return canoe at the end if the guest ends in a
+northern village.
+
+Find this block inside buildSmartRoute (inside the "for (const targetMin of targetHours)" loop):
+
+    if (bestVillage && bestShow) {
+      // Insert canoe if needed to reach northern villages
+      const needsCanoe = !canoeUsed &&
+        ['tahiti', 'hawaii', 'aotearoa'].includes(bestVillage) &&
+        ['samoa', 'tonga'].includes(lastVillage ?? '');
+      if (needsCanoe) {
+        const canoeMin = getNextCanoeTime(curMin, 'north');
+        if (canoeMin && canoeMin + TIMING.CANOE_DURATION_MIN <= bestShow.timeMin) {
+          addStop(buildCanoeStop(canoeMin, 'north'));
+        }
+      }
+
+      addStop(buildShowStop(
+        bestVillage, bestShow.name, bestShow.time,
+        isBusy, usedVillages, interests, energy, group
+      ));
+    }
+
+Replace with:
+
+    if (bestVillage && bestShow) {
+      const isNorthernVillage = ['tahiti', 'hawaii', 'aotearoa'].includes(bestVillage);
+      const currentlyInNorth  = ['tahiti', 'hawaii', 'aotearoa'].includes(lastVillage ?? '');
+
+      // Insert northbound canoe if heading into northern villages for the first time
+      if (!canoeUsed && isNorthernVillage && !currentlyInNorth) {
+        const canoeMin = getNextCanoeTime(curMin, 'north');
+        if (canoeMin && canoeMin + TIMING.CANOE_DURATION_MIN <= bestShow.timeMin) {
+          addStop(buildCanoeStop(canoeMin, 'north'));
+        }
+      }
+
+      addStop(buildShowStop(
+        bestVillage, bestShow.name, bestShow.time,
+        isBusy, usedVillages, interests, energy, group
+      ));
+    }
+
+================================================================================
+VERIFICATION
+================================================================================
+
+After all changes run:
+  npx tsc --noEmit
+
+Zero TypeScript errors required. Fix any errors before finishing.
+
+Then verify:
+1. assets\images\ contains all 5 new group-*.jpg files
+2. The group question screen shows the new photos for each group type
+3. A schedule that visits northern villages (tahiti, hawaii, aotearoa) includes
+   a canoe ride stop before reaching them
+4. No TypeScript errors
+
+================================================================================
+RULES
+================================================================================
+- Edit src/lib/routing.ts and src/app/index.tsx ONLY
+- Do NOT touch _layout.tsx
+- Do NOT restructure any files
+- Run npx tsc --noEmit after all changes and fix all errors

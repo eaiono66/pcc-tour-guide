@@ -1,56 +1,51 @@
-# Welcome to your Expo app 👋
+# PCC Smart Itinerary Builder
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A guest-facing concept app that generates a personalized Polynesian Cultural Center day plan. Built with React Native and Expo.
 
-## Get started
+---
 
-1. Install dependencies
+## What it does
 
-   ```bash
-   npm install
-   ```
+"Not knowing what to do" or feeling lost is the #3 complaint among self-guided PCC guests — and nothing currently exists to solve it. Guests arrive with a ticket and no clear path through the park. Shows conflict, villages are spread out, and meal windows get missed.
 
-2. Start the app
+The Smart Itinerary Builder fixes that from three inputs: arrival time, group type, and ticket level.
 
-   ```bash
-   npx expo start
-   ```
+Guests get:
+- **Day Planner** — a full itinerary sequenced around real show times and walking distance between villages
+- **Insider Picks** — spots and moments most self-guided guests walk right past, drawn from guide knowledge
+- **Smart Upgrade Moments** — upgrade prompt placed at the end of the personalized plan, when the guest can already picture their evening
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## How the AI works
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+A hybrid engine — deterministic logic where correctness matters, generative AI where personality matters.
 
-## Get a fresh project
+**Rule-based scheduling core** handles the hard constraints: show times, village walking order, ticket-tier access, and time-window conflicts. Every generated itinerary is guaranteed to be physically possible.
 
-When you're ready, run:
+**Claude** handles everything that should feel human: adapting tone and pacing to the group type (honeymooners get a different day than a family with toddlers), selecting insider picks, and writing the upgrade moment — timed for peak engagement.
 
-```bash
-npm run reset-project
-```
+One focused Claude call per itinerary. Cheaper and faster than asking an LLM to brute-force a schedule.
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-### Other setup steps
+## Tech stack
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+- React Native / Expo
+- Claude Sonnet (Anthropic API)
+- Rule-based scheduling engine (custom)
+- PCC brand assets and real show schedule data
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
+## Status
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Prototype — concept demo built on PCC's actual show schedule and brand system. Proposed to leadership as a guest-experience initiative.
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## Demo
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Built against PCC's internal show schedule and brand system. Contact [ezra.aiono@gmail.com](mailto:ezra.aiono@gmail.com) to request a demo.
+
+Portfolio: [eaiono66.github.io](https://eaiono66.github.io)

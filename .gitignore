@@ -43,3 +43,10 @@ example
 # generated native folders
 /ios
 /android
+
+# AI agent scratch files (snapshots, fix instructions, debug dumps)
+*_snapshot.txt
+*_current*.txt
+data_output.txt
+fix_*.txt
+debug_*.txt
